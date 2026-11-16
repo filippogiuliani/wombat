@@ -692,3 +692,11 @@ def test_home_assistant_observer_widget(monkeypatch):
     assert read('http://ha2:4357')['items'][2] == {'key': 'ha_healthy', 'value_key': 'ha_healthy_no', 'params': {'reasons': 'docker'}, 'state': 'bad'}
     assert read('http://ha3:4357')['items'] == [{'key': 'ha_supervisor', 'value_key': 'ha_disconnected', 'params': {}, 'state': 'bad'}]
     assert read('http://ha4:4357') == {'error': 'not_data', 'params': {}}
+
+
+def test_jellyfin_key_is_sent_the_current_way(monkeypatch):
+    import widgets
+    calls = _fake_http(monkeypatch, {('GET', 'http://jf:8096/Sessions'): [], ('GET', 'http://jf:8096/Items/Counts'): {}})
+    widgets._safe_read((1, {'type': 'jellyfin', 'url': 'http://jf:8096'}, {'api_key': ' abc123 '}))
+    h = calls[0][2]['headers']
+    assert 'Token="abc123"' in h['Authorization'] and h['Authorization'].startswith('MediaBrowser ') and h['X-Emby-Token'] == 'abc123'

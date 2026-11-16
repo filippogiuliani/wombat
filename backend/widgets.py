@@ -141,7 +141,10 @@ def _generic(cfg, sec):
 
 
 def _jellyfin(cfg, sec):
-    h = {'X-Emby-Token': sec.get('api_key', '')}
+    key = sec.get('api_key', '').strip()
+    # The current way (Jellyfin 10.11 turns the old headers off by default), and the old one for older servers
+    h = {'Authorization': f'MediaBrowser Client="weHub", Device="weHub", DeviceId="wehub-widget", Version="1", Token="{key}"',
+         'X-Emby-Token': key}
     sessions = _req('GET', f'{_base(cfg)}/Sessions', cfg, headers=h, params={'activeWithinSeconds': 120})
     playing = [s for s in sessions if s.get('NowPlayingItem')]
     transcoding = sum(1 for s in playing if (s.get('PlayState') or {}).get('PlayMethod') == 'Transcode')
