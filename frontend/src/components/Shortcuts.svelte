@@ -11,18 +11,21 @@
   const ICONS = ['link', 'lock', 'home', 'photo', 'film', 'music', 'server', 'chart', 'mail', 'calendar', 'book', 'cloud', 'tool'];
   let links = $state([]);
   // Widgets: what each kind asks for (keys and passwords are write-only: the page only knows whether they are saved)
-  const WIDGETS = ['kwirc', 'jellyfin', 'npm', 'portainer', 'adguard', 'grafana', 'prometheus', 'opnsense', 'openwrt', 'generic'];
+  const WIDGETS = ['kwirc', 'jellyfin', 'npm', 'portainer', 'adguard', 'grafana', 'prometheus', 'opnsense', 'openwrt', 'homeassistant', 'generic'];
   const SECRETS = { kwirc: ['token'], generic: ['token'], jellyfin: ['api_key'], npm: ['email', 'password'], portainer: ['token'],
-                    adguard: ['username', 'password'], grafana: ['token'], prometheus: [], opnsense: ['key', 'secret'], openwrt: ['username', 'password'] };
+                    adguard: ['username', 'password'], grafana: ['token'], prometheus: [], opnsense: ['key', 'secret'], openwrt: ['username', 'password'],
+                    homeassistant: ['token'] };
   const PLAIN = ['email', 'username'];       // shown as text; the rest as passwords
   const FORMATS = ['number', 'percent', 'ratio', 'bytes', 'ago', 'duration', 'bool'];
-  const emptyWidget = () => ({ type: '', url: '', insecure: false, wan: 'wan', queries: [{ label: '', query: '', format: 'number' }], secrets: {} });
-  const widgetOf = (l) => (l.widget ? { ...emptyWidget(), ...l.widget, queries: l.widget.queries?.length ? l.widget.queries.map((q) => ({ ...q })) : emptyWidget().queries, secrets: {} } : emptyWidget());
+  const emptyWidget = () => ({ type: '', url: '', insecure: false, wan: 'wan', queries: [{ label: '', query: '', format: 'number' }], entities: [], secrets: {} });
+  const widgetOf = (l) => (l.widget ? { ...emptyWidget(), ...l.widget, queries: l.widget.queries?.length ? l.widget.queries.map((q) => ({ ...q })) : emptyWidget().queries,
+                                       entities: (l.widget.entities ?? []).map((e) => ({ ...e })), secrets: {} } : emptyWidget());
   function widgetBody(w) {
     if (!w.type) return null;
     const out = { type: w.type, url: w.url, insecure: w.insecure, secrets: Object.fromEntries(Object.entries(w.secrets).filter(([, v]) => v)) };
     if (w.type === 'opnsense') out.wan = w.wan;
     if (w.type === 'prometheus') out.queries = w.queries.filter((q) => q.query.trim());
+    if (w.type === 'homeassistant') out.entities = w.entities.filter((e) => e.entity.trim());
     return out;
   }
   let form = $state(null); // { id?, name, url, description, icon, group, everyone, members: [] }
@@ -70,8 +73,8 @@
 </script>
 
 <section class="card stack">
-  <div class="spread"><h2 class="ic"><Icon name="link" />{t('links.title')}</h2>
-    {#if !form && importing === null}<div class="row">
+  <div class="spread top"><h2 class="ic"><Icon name="link" />{t('links.title')}</h2>
+    {#if !form && importing === null}<div class="row wrap actions">
       <button class="btn ghost sm" onclick={() => { report = null; importing = ''; }}><Icon name="upload" size={15} />{t('links.import')}</button>
       <button class="btn soft sm" onclick={startNew}><Icon name="plus" size={15} />{t('links.add')}</button></div>{/if}</div>
   <p class="small muted">{t('links.explain')}</p>
@@ -145,6 +148,17 @@
             {/each}
             {#if form.widget.queries.length < 4}<button type="button" class="btn ghost sm" onclick={() => form.widget.queries.push({ label: '', query: '', format: 'number' })}><Icon name="plus" size={14} />{t('widget.q_add')}</button>{/if}
           {/if}
+          {#if form.widget.type === 'homeassistant'}
+            {#each form.widget.entities as e, i}
+              <div class="query ent">
+                <input class="input" bind:value={e.label} maxlength="40" placeholder={t('widget.e_label')} aria-label={t('widget.e_label')} />
+                <input class="input mono" bind:value={e.entity} maxlength="255" placeholder="sensor.temperatura_soggiorno" aria-label={t('widget.e_entity')}
+                  spellcheck="false" autocapitalize="off" />
+                <button type="button" class="btn icon sm ghost" onclick={() => form.widget.entities.splice(i, 1)} aria-label={t('widget.q_remove')}><Icon name="trash" size={14} /></button>
+              </div>
+            {/each}
+            {#if form.widget.entities.length < 4}<button type="button" class="btn ghost sm" onclick={() => form.widget.entities.push({ label: '', entity: '' })}><Icon name="plus" size={14} />{t('widget.e_add')}</button>{/if}
+          {/if}
           <label class="check small"><input type="checkbox" bind:checked={form.widget.insecure} /> {t('widget.insecure')}</label>
         {/if}
       </fieldset>
@@ -191,6 +205,9 @@
 
 <style>
   .ic { display: flex; align-items: center; gap: 8px; }
+  /* On narrow screens the title and the two buttons don't fit on one line: let them wrap */
+  .top { flex-wrap: wrap; }
+  .actions { margin-left: auto; }
   .box { padding: 12px; border-radius: var(--r-md); background: var(--primary-soft); }
   .grid2 { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 520px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
@@ -210,5 +227,6 @@
   .widget { border: 1px solid var(--line); border-radius: var(--r-sm, 8px); padding: 10px 12px; margin: 0; background: var(--surface); }
   .widget legend { padding: 0 4px; }
   .query { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) auto; align-items: center; }
-  @media (max-width: 620px) { .query { grid-template-columns: minmax(0, 1fr) auto; } .query .mono { grid-column: 1 / -1; } }
+  .query.ent { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; }
+  @media (max-width: 620px) { .query, .query.ent { grid-template-columns: minmax(0, 1fr) auto; } .query .mono { grid-column: 1 / -1; } }
 </style>

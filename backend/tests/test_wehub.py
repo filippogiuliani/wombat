@@ -647,3 +647,28 @@ def test_widget_readers(monkeypatch):
         {'key': 'internet', 'value': '12.3 ms', 'state': 'ok'}, {'key': 'memory', 'value': '42%'}]   # traffic needs two readings
     assert read('openwrt', 'http://ap1', username='u', password='p') == [
         {'key': 'wifi_clients', 'value': '6'}, {'key': 'uptime', 'value': '3 g 2 h'}, {'key': 'load', 'value': '0.20'}]
+
+
+def test_home_assistant_widget(admin, monkeypatch):
+    import widgets
+    _fake_http(monkeypatch, {
+        ('GET', 'http://ha:8123/api/states'): [
+            {'entity_id': 'person.anna', 'state': 'home'}, {'entity_id': 'person.luca', 'state': 'not_home'},
+            {'entity_id': 'light.cucina', 'state': 'on'}, {'entity_id': 'light.sala', 'state': 'off'},
+            {'entity_id': 'update.core', 'state': 'on'}, {'entity_id': 'sensor.vecchio', 'state': 'unavailable'}],
+        ('GET', 'http://ha:8123/api/states/sensor.temp'): {'state': '21.46', 'attributes': {'unit_of_measurement': '°C', 'friendly_name': 'Soggiorno'}},
+        ('GET', 'http://ha:8123/api/states/lock.porta'): {'state': 'locked', 'attributes': {}},
+    })
+    read = lambda **cfg: widgets._safe_read((1, {'type': 'homeassistant', 'url': 'http://ha:8123', **cfg}, {'token': 't'}))
+    assert read()['items'] == [
+        {'key': 'ha_people', 'value_key': 'ha_people_value', 'params': {'home': 1, 'all': 2}},
+        {'key': 'ha_lights', 'value': '1'}, {'key': 'ha_updates', 'value': '1', 'state': 'warn'},
+        {'key': 'ha_unavailable_n', 'value': '1', 'state': 'warn'}]
+    assert read(entities=[{'label': '', 'entity': 'sensor.temp'}, {'label': 'Porta', 'entity': 'lock.porta'},
+                          {'label': 'Garage', 'entity': 'cover.garage'}])['items'] == [
+        {'value': '21.5 °C', 'label': 'Soggiorno'}, {'value_key': 'ha_locked', 'params': {}, 'label': 'Porta'},
+        {'label': 'Garage', 'value_key': 'ha_missing', 'params': {}, 'state': 'warn'}]
+    # The entities are checked when saved
+    r = admin.post('/api/family/shortcuts', json={'name': 'Casa', 'url': 'http://ha:8123', 'widget': {
+        'type': 'homeassistant', 'entities': [{'label': 'x', 'entity': 'sensor.temp; drop'}], 'secrets': {'token': 't'}}})
+    assert r.status_code == 400

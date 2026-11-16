@@ -94,6 +94,15 @@ def _widget(conn, w, sid=None):
         if not queries:
             abort(400, 'Add at least one query')
         cfg['queries'] = queries
+    if 'entities' in spec['fields']:
+        entities = []
+        for e in (w.get('entities') or [])[:widgets.MAX_LINES]:
+            entity = text(e.get('entity'), 255).lower() if isinstance(e, dict) else ''
+            if entity:
+                if not re.fullmatch(r'[a-z0-9_]+\.[a-z0-9_]+', entity):
+                    abort(400, f'Invalid entity: {entity}')
+                entities.append({'label': text(e.get('label'), 40), 'entity': entity})
+        cfg['entities'] = entities
     old_cfg, old = {}, {}
     if sid:
         r = conn.execute('SELECT widget, widget_secret FROM shortcuts WHERE id = ?', (sid,)).fetchone()

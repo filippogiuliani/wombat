@@ -45,6 +45,7 @@ TYPES = {
     'prometheus': {'secrets': [], 'fields': ['queries']},
     'opnsense':   {'secrets': ['key', 'secret'], 'fields': ['wan']},
     'openwrt':    {'secrets': ['username', 'password'], 'fields': []},
+    'homeassistant': {'secrets': ['token'], 'fields': ['entities']},
 }
 FORMATS = ('number', 'percent', 'ratio', 'bytes', 'ago', 'bool', 'duration')
 
@@ -321,6 +322,61 @@ def _openwrt(cfg, sec):
     return lines
 
 
+# Home Assistant states shown as words (the rest as they are: "21.5 °C", "heat", "playing"…)
+HA_STATES = {'on': 'ha_on', 'off': 'ha_off', 'home': 'ha_home', 'not_home': 'ha_away', 'open': 'ha_open', 'closed': 'ha_closed',
+             'locked': 'ha_locked', 'unlocked': 'ha_unlocked', 'unavailable': 'ha_unavailable', 'unknown': 'ha_unknown'}
+
+
+def _ha_value(st):
+    state = str(st.get('state', ''))
+    if state in HA_STATES:
+        bad = state in ('unavailable', 'unknown')
+        return _line(value_key=HA_STATES[state], state='warn' if bad else None)
+    unit = (st.get('attributes') or {}).get('unit_of_measurement') or ''
+    try:
+        n = float(state)
+        state = f'{n:.0f}' if n == int(n) else f'{n:.1f}'
+    except ValueError:
+        pass
+    return _line(value=f'{state} {unit}'.strip())
+
+
+def _homeassistant(cfg, sec):
+    """With chosen entities, their states; otherwise a summary: who is home, lights on, updates, things unavailable."""
+    h = {'Authorization': f"Bearer {sec.get('token', '')}"}
+    base = _base(cfg)
+    if cfg.get('entities'):
+        lines = []
+        for e in cfg['entities'][:MAX_LINES]:
+            try:
+                st = _req('GET', f"{base}/api/states/{e['entity']}", cfg, headers=h)
+            except WidgetError as err:
+                if err.code != 'not_found':
+                    raise
+                lines.append(_line(label=e['label'], value_key='ha_missing', state='warn'))
+                continue
+            line = _ha_value(st)
+            line['label'] = (e['label'] or (st.get('attributes') or {}).get('friendly_name') or e['entity'])[:40]
+            lines.append(line)
+        return lines
+    states = _req('GET', f'{base}/api/states', cfg, headers=h)
+    if not isinstance(states, list):
+        raise WidgetError('not_data')
+    domain = lambda st: str(st.get('entity_id', '')).split('.')[0]
+    people = [st for st in states if domain(st) == 'person']
+    lights = [st for st in states if domain(st) == 'light']
+    updates = sum(1 for st in states if domain(st) == 'update' and st.get('state') == 'on')
+    missing = sum(1 for st in states if st.get('state') == 'unavailable')
+    lines = []
+    if people:
+        lines.append(_line('ha_people', value_key='ha_people_value', home=sum(1 for p in people if p.get('state') == 'home'), all=len(people)))
+    if lights:
+        lines.append(_line('ha_lights', _num(sum(1 for x in lights if x.get('state') == 'on'))))
+    lines.append(_line('ha_updates', _num(updates), 'warn' if updates else 'ok'))
+    lines.append(_line('ha_unavailable_n', _num(missing), 'warn' if missing else 'ok'))
+    return lines
+
+
 def _read(link_id, cfg, sec):
     kind = cfg.get('type')
     if kind in ('kwirc', 'generic'):
@@ -329,7 +385,7 @@ def _read(link_id, cfg, sec):
         lines = _opnsense(cfg, sec, link_id)
     else:
         lines = {'jellyfin': _jellyfin, 'npm': _npm, 'portainer': _portainer, 'adguard': _adguard, 'grafana': _grafana,
-                 'prometheus': _prometheus, 'openwrt': _openwrt}[kind](cfg, sec)
+                 'prometheus': _prometheus, 'openwrt': _openwrt, 'homeassistant': _homeassistant}[kind](cfg, sec)
     return {'items': lines[:MAX_LINES]}
 
 
