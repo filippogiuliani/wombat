@@ -17,6 +17,17 @@
     const timer = setInterval(load, 60000);
     return () => clearInterval(timer);
   });
+  // Widgets: a few numbers from each service (read by weHub, at most once a minute)
+  let widgetData = $state({});
+  $effect(() => {
+    if (!links.some((l) => l.has_widget)) return;
+    const load = () => { if (!document.hidden) get('/shortcuts/widgets').then((r) => (widgetData = r)).catch(() => {}); };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => clearInterval(timer);
+  });
+  const lineLabel = (x) => x.label ?? t('widget.' + x.key);
+  const lineValue = (x) => x.value_key ? t('widget.' + x.value_key, x.params) : x.value;
   // A short summary from each app (what is coming up, today's meals, documents to fix): asked to weHub, which asks the apps
   let summary = $state(null); // { apps: { id: data | null } }
   $effect(() => {
@@ -127,7 +138,15 @@
       {#each gr.links as l (l.id)}
         <a class="link" href={l.url} target="_blank" rel="noopener noreferrer">
           <span class="lic" class:plain={l.icon_kind === 'image'}><LinkIcon link={l} size={l.icon_kind === 'image' ? 42 : 26} /></span>
-          <span class="txt"><b>{l.name}</b>{#if l.description}<span class="small muted desc">{l.description}</span>{/if}</span>
+          <span class="txt"><b>{l.name}</b>{#if l.description}<span class="small muted desc">{l.description}</span>{/if}
+            {#if l.has_widget}
+              {@const w = widgetData[l.id]}
+              {#if w?.items}
+                <span class="wlines">{#each w.items as x}<span class="wl"><span class="muted">{lineLabel(x)}</span> <b class={x.state ?? ''}>{lineValue(x)}</b></span>{/each}</span>
+              {:else if w?.error && app.me.role === 'admin'}
+                <span class="tiny werr">{t('widget.err_' + w.error, w.params)}</span>
+              {/if}
+            {/if}</span>
           {#if l.monitor}
             {@const st = status[l.id]}
             <span class="dot" class:up={st?.up} class:down={st && !st.up} title={statusText(st)} aria-label={statusText(st)} role="img"></span>
@@ -157,6 +176,15 @@
   .who.mine { color: var(--primary); font-weight: 600; }
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .txt b { font-size: 1.05rem; }
+  .wlines { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+  /* label whole on the left, value on the right (cut with … only when it really does not fit) */
+  .wl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; }
+  .wl > span { white-space: nowrap; }
+  .link .txt .wl b { font-size: 0.8rem; font-weight: 650; text-align: right; overflow-wrap: anywhere; }
+  .link .txt .wl b.ok { color: var(--ok, #2e7d32); }
+  .link .txt .wl b.warn { color: var(--warn, #b26a00); }
+  .link .txt .wl b.bad { color: var(--danger); }
+  .werr { color: var(--danger); margin-top: 4px; }
   .txt .badge { align-self: flex-start; margin-top: 4px; }
   .note { margin-top: 16px; }
   .sub { margin: 28px 0 12px; }

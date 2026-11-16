@@ -10,6 +10,21 @@
   let { members } = $props();
   const ICONS = ['link', 'lock', 'home', 'photo', 'film', 'music', 'server', 'chart', 'mail', 'calendar', 'book', 'cloud', 'tool'];
   let links = $state([]);
+  // Widgets: what each kind asks for (keys and passwords are write-only: the page only knows whether they are saved)
+  const WIDGETS = ['kwirc', 'jellyfin', 'npm', 'portainer', 'adguard', 'grafana', 'prometheus', 'opnsense', 'openwrt', 'generic'];
+  const SECRETS = { kwirc: ['token'], generic: ['token'], jellyfin: ['api_key'], npm: ['email', 'password'], portainer: ['token'],
+                    adguard: ['username', 'password'], grafana: ['token'], prometheus: [], opnsense: ['key', 'secret'], openwrt: ['username', 'password'] };
+  const PLAIN = ['email', 'username'];       // shown as text; the rest as passwords
+  const FORMATS = ['number', 'percent', 'ratio', 'bytes', 'ago', 'duration', 'bool'];
+  const emptyWidget = () => ({ type: '', url: '', insecure: false, wan: 'wan', queries: [{ label: '', query: '', format: 'number' }], secrets: {} });
+  const widgetOf = (l) => (l.widget ? { ...emptyWidget(), ...l.widget, queries: l.widget.queries?.length ? l.widget.queries.map((q) => ({ ...q })) : emptyWidget().queries, secrets: {} } : emptyWidget());
+  function widgetBody(w) {
+    if (!w.type) return null;
+    const out = { type: w.type, url: w.url, insecure: w.insecure, secrets: Object.fromEntries(Object.entries(w.secrets).filter(([, v]) => v)) };
+    if (w.type === 'opnsense') out.wan = w.wan;
+    if (w.type === 'prometheus') out.queries = w.queries.filter((q) => q.query.trim());
+    return out;
+  }
   let form = $state(null); // { id?, name, url, description, icon, group, everyone, members: [] }
   let importing = $state(null); // the pasted services.yaml while the import box is open
   let report = $state(null);
@@ -30,11 +45,11 @@
   async function act(fn, message) {
     try { links = await fn(); await loadMe(); if (message) toast(message); return true; } catch (e) { showError(e); return false; }
   }
-  const startNew = () => { importing = null; form = { name: '', url: '', description: '', icon: 'link', group: groups.at(-1) ?? '', monitor: true, everyone: true, members: [] }; };
-  const edit = (l) => { importing = null; form = { ...l, members: [...l.members] }; };
+  const startNew = () => { importing = null; form = { name: '', url: '', description: '', icon: 'link', group: groups.at(-1) ?? '', monitor: true, everyone: true, members: [], widget: emptyWidget(), saved: {} }; };
+  const edit = (l) => { importing = null; form = { ...l, members: [...l.members], widget: widgetOf(l), saved: l.widget?.type ? (l.widget_secrets ?? {}) : {} }; };
   async function save(e) {
     e.preventDefault();
-    const body = { name: form.name, url: form.url, description: form.description, icon: form.icon, group: form.group, monitor: form.monitor, everyone: form.everyone, members: form.members };
+    const body = { name: form.name, url: form.url, description: form.description, icon: form.icon, group: form.group, monitor: form.monitor, everyone: form.everyone, members: form.members, widget: widgetBody(form.widget) };
     if (await act(() => (form.id ? put(`/family/shortcuts/${form.id}`, body) : post('/family/shortcuts', body)), t('common.saved'))) form = null;
   }
   async function remove(l) {
@@ -102,6 +117,37 @@
         {/each}
       </div>
       <label class="check small"><input type="checkbox" bind:checked={form.monitor} /> {t('links.monitor')}</label>
+      <fieldset class="widget stack tight">
+        <legend class="small"><b>{t('widget.title')}</b></legend>
+        <span class="tiny muted">{t('widget.explain')}</span>
+        <select class="input" bind:value={form.widget.type} aria-label={t('widget.type')}>
+          <option value="">{t('widget.none')}</option>
+          {#each WIDGETS as w}<option value={w}>{t('widget.t_' + w)}</option>{/each}
+        </select>
+        {#if form.widget.type}
+          <span class="tiny muted">{t('widget.help_' + form.widget.type)}</span>
+          <input class="input" bind:value={form.widget.url} maxlength="500" inputmode="url" spellcheck="false" autocapitalize="off"
+            placeholder={form.widget.type === 'kwirc' ? `${form.url || 'https://kwirc…'}/api/widget` : form.url || 'http://…'} aria-label={t('widget.url')} />
+          <span class="tiny muted">{t('widget.url')}</span>
+          {#each SECRETS[form.widget.type] as s}
+            <input class="input" type={PLAIN.includes(s) ? 'text' : 'password'} autocomplete="off" bind:value={form.widget.secrets[s]}
+              placeholder={form.saved?.[s] ? `${t('widget.s_' + s)} — ${t('widget.saved')}` : t('widget.s_' + s)} aria-label={t('widget.s_' + s)} />
+          {/each}
+          {#if form.widget.type === 'opnsense'}<input class="input" bind:value={form.widget.wan} maxlength="20" placeholder="wan" aria-label={t('widget.wan')} />{/if}
+          {#if form.widget.type === 'prometheus'}
+            {#each form.widget.queries as q, i}
+              <div class="query">
+                <input class="input" bind:value={q.label} maxlength="40" placeholder={t('widget.q_label')} aria-label={t('widget.q_label')} />
+                <input class="input mono" bind:value={q.query} maxlength="500" placeholder={t('widget.q_query')} aria-label={t('widget.q_query')} spellcheck="false" />
+                <select class="input" bind:value={q.format} aria-label="format">{#each FORMATS as f}<option value={f}>{t('widget.f_' + f)}</option>{/each}</select>
+                <button type="button" class="btn icon sm ghost" onclick={() => form.widget.queries.splice(i, 1)} aria-label={t('widget.q_remove')}><Icon name="trash" size={14} /></button>
+              </div>
+            {/each}
+            {#if form.widget.queries.length < 4}<button type="button" class="btn ghost sm" onclick={() => form.widget.queries.push({ label: '', query: '', format: 'number' })}><Icon name="plus" size={14} />{t('widget.q_add')}</button>{/if}
+          {/if}
+          <label class="check small"><input type="checkbox" bind:checked={form.widget.insecure} /> {t('widget.insecure')}</label>
+        {/if}
+      </fieldset>
       <div class="seg">
         <button type="button" class:on={form.everyone} onclick={() => (form.everyone = true)}>{t('links.everyone')}</button>
         <button type="button" class:on={!form.everyone} onclick={() => (form.everyone = false)}>{t('links.only')}</button>
@@ -161,4 +207,8 @@
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
   .lic { width: 32px; height: 32px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; flex-shrink: 0; }
   .url { overflow-wrap: anywhere; }
+  .widget { border: 1px solid var(--line); border-radius: var(--r-sm, 8px); padding: 10px 12px; margin: 0; background: var(--surface); }
+  .widget legend { padding: 0 4px; }
+  .query { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) auto; align-items: center; }
+  @media (max-width: 620px) { .query { grid-template-columns: minmax(0, 1fr) auto; } .query .mono { grid-column: 1 / -1; } }
 </style>

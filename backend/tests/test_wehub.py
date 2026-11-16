@@ -527,3 +527,123 @@ def test_home_summary_asks_only_the_apps_the_person_uses(admin, monkeypatch):
     ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['patrack']}))
     asked.clear()
     assert set(ok(admin.get('/api/home/summary'))['apps']) == {'patrack'} and len(asked) == 1
+
+
+def _fake_http(monkeypatch, routes):
+    """Answers for widgets.requests.request: {(method, url): json | status code | exception}."""
+    import widgets
+    calls = []
+
+    class R:
+        def __init__(self, data, code=200): self.data, self.status_code = data, code
+        def json(self): return self.data
+
+    def request(method, url, **kw):
+        calls.append((method, url, kw))
+        got = routes.get((method, url))
+        if isinstance(got, Exception):
+            raise got
+        if isinstance(got, int):
+            return R(None, got)
+        if got is None:
+            return R(None, 404)
+        return R(got(kw) if callable(got) else got)
+    monkeypatch.setattr(widgets.requests, 'request', request)
+    widgets.clear()
+    return calls
+
+
+def test_widgets_read_the_services_and_keep_keys_on_the_server(admin, client, monkeypatch):
+    calls = _fake_http(monkeypatch, {
+        ('GET', 'https://kwirc.example/api/widget'): {'items': [{'label': 'Download', 'value': '2 in corso'}, {'label': 'Vetrina', 'value': '5 nuovi'}]},
+        ('GET', 'http://jellyfin:8096/Sessions'): [{'NowPlayingItem': {'Name': 'Dune'}, 'PlayState': {'PlayMethod': 'Transcode'}}, {'NowPlayingItem': {'Name': 'Up'}}, {}],
+        ('GET', 'http://jellyfin:8096/Items/Counts'): {'MovieCount': 325, 'SeriesCount': 40},
+        ('GET', 'http://adguard/control/stats'): {'num_dns_queries': 12345, 'num_blocked_filtering': 2469},
+        ('GET', 'http://adguard/control/status'): {'protection_enabled': True},
+        ('GET', 'http://prom:9090/api/v1/query'): lambda kw: {'data': {'result': [{'value': [0, {'up': '1', 'disk': '0.42'}[kw['params']['query']]]}]}},
+    })
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'kwIRC', 'url': 'https://kwirc.example',
+                                                         'widget': {'type': 'kwirc', 'secrets': {'token': 'kw_secret'}}}), 201)
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'Jellyfin', 'url': 'https://jf.example',
+                                                         'widget': {'type': 'jellyfin', 'url': 'http://jellyfin:8096', 'secrets': {'api_key': 'jf-key'}}}), 201)
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'AdGuard', 'url': 'http://adguard',
+                                                         'widget': {'type': 'adguard', 'secrets': {'username': 'a', 'password': 'p'}}}), 201)
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'Server', 'url': 'http://prom:9090', 'widget': {'type': 'prometheus', 'queries': [
+        {'label': 'Backup', 'query': 'up', 'format': 'bool'}, {'label': 'Disco', 'query': 'disk', 'format': 'ratio'}]}}), 201)
+    ids = {l['name']: str(l['id']) for l in links}
+    # the admin sees the settings, and for keys only whether they are set
+    jf = next(l for l in links if l['name'] == 'Jellyfin')
+    assert jf['widget']['type'] == 'jellyfin' and jf['widget_secrets'] == {'api_key': True} and 'jf-key' not in str(links)
+    data = ok(admin.get('/api/shortcuts/widgets'))
+    assert data[ids['kwIRC']]['items'][0] == {'label': 'Download', 'value': '2 in corso'}
+    kw = next(c for c in calls if c[1] == 'https://kwirc.example/api/widget')
+    assert kw[2]['headers'] == {'Authorization': 'Bearer kw_secret'}
+    assert data[ids['Jellyfin']]['items'][:2] == [{'key': 'playing', 'value': '2'}, {'key': 'transcoding', 'value': '1', 'state': 'warn'}]
+    assert data[ids['AdGuard']]['items'] == [{'key': 'dns_queries', 'value': '12.345'}, {'key': 'dns_blocked', 'value': '20.0%'},
+                                             {'key': 'protection', 'value_key': 'on', 'params': {}, 'state': 'ok'}]
+    assert data[ids['Server']]['items'] == [{'label': 'Backup', 'value_key': 'ok', 'params': {}, 'state': 'ok'}, {'label': 'Disco', 'value': '42.0%'}]
+    n = len(calls)
+    ok(admin.get('/api/shortcuts/widgets'))
+    assert len(calls) == n                                                          # kept for a minute
+    # saving again without the key keeps it; another kind of widget starts without
+    ok(admin.put(f"/api/family/shortcuts/{ids['Jellyfin']}", json={'name': 'Jellyfin', 'url': 'https://jf.example',
+                                                                   'widget': {'type': 'jellyfin', 'url': 'http://jellyfin:8096'}}))
+    links = ok(admin.get('/api/family/shortcuts'))
+    assert next(l for l in links if l['name'] == 'Jellyfin')['widget_secrets'] == {'api_key': True}
+    # members see the lines, never the settings
+    ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com', 'apps': []}), 201)
+    sara, _ = _session_for(client, 'sara@example.com')
+    seen = ok(sara.get('/api/shortcuts'))
+    assert all(l['has_widget'] and 'widget' not in l and 'widget_secrets' not in l for l in seen)
+    assert 'jf-key' not in str(seen) and 'jellyfin:8096' not in str(seen)
+    assert set(ok(sara.get('/api/shortcuts/widgets'))) == set(ids.values())
+
+
+def test_widget_errors_are_said_not_raised(admin, monkeypatch):
+    import requests as rq
+    _fake_http(monkeypatch, {('GET', 'http://down.example/api/widget'): rq.ConnectionError(),
+                             ('GET', 'http://locked.example/control/stats'): 401})
+    ok(admin.post('/api/family/shortcuts', json={'name': 'Down', 'url': 'http://down.example', 'widget': {'type': 'kwirc'}}), 201)
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'Locked', 'url': 'http://locked.example', 'widget': {'type': 'adguard'}}), 201)
+    data = ok(admin.get('/api/shortcuts/widgets'))
+    assert sorted(v['error'] for v in data.values()) == ['refused', 'unreachable']
+    assert admin.post('/api/family/shortcuts', json={'name': 'X', 'url': 'http://x', 'widget': {'type': 'nope'}}).status_code == 400
+
+
+def test_widget_readers(monkeypatch):
+    import widgets
+    from datetime import datetime, timedelta, timezone
+    soon = (datetime.now(timezone.utc) + timedelta(days=5)).strftime('%Y-%m-%d %H:%M:%S')
+    later = (datetime.now(timezone.utc) + timedelta(days=60)).strftime('%Y-%m-%d %H:%M:%S')
+
+    def ubus(kw):
+        obj, method = kw['json']['params'][1:3]
+        return {'result': {('session', 'login'): [0, {'ubus_rpc_session': 'S'}], ('iwinfo', 'devices'): [0, {'devices': ['wlan0', 'wlan1']}],
+                           ('iwinfo', 'assoclist'): [0, {'results': [{}, {}, {}]}],
+                           ('system', 'info'): [0, {'uptime': 3 * 86400 + 7200, 'load': [13107, 0, 0]}]}[(obj, method)]}
+    _fake_http(monkeypatch, {
+        ('POST', 'http://npm:81/api/tokens'): {'token': 'T'},
+        ('GET', 'http://npm:81/api/nginx/proxy-hosts'): [{'enabled': 1}, {'enabled': 1}, {'enabled': 0}],
+        ('GET', 'http://npm:81/api/nginx/certificates'): [{'expires_on': soon}, {'expires_on': later}],
+        ('GET', 'http://portainer:9000/api/endpoints'): [{'Id': 2}],
+        ('GET', 'http://portainer:9000/api/endpoints/2/docker/containers/json'): [
+            {'State': 'running', 'Status': 'Up 3 days (healthy)'}, {'State': 'running', 'Status': 'Up 1 hour (unhealthy)'}, {'State': 'exited'}],
+        ('GET', 'http://grafana/api/health'): {'database': 'ok'},
+        ('GET', 'http://grafana/api/alertmanager/grafana/api/v2/alerts'): [{}, {}],
+        ('GET', 'https://opnsense/api/routes/gateway/status'): {'items': [{'status': 'none', 'delay': '12.3 ms'}]},
+        ('GET', 'https://opnsense/api/diagnostics/traffic/interface'): {'interfaces': {'wan': {'bytes received': '1000', 'bytes transmitted': '500'}}},
+        ('GET', 'https://opnsense/api/diagnostics/system/system_resources'): {'memory': {'total': '1000', 'used': '420'}},
+        ('POST', 'http://ap1/ubus'): ubus,
+    })
+    read = lambda kind, url, **sec: widgets._safe_read((1, {'type': kind, 'url': url}, sec))['items']
+    assert read('npm', 'http://npm:81', email='e', password='p') == [
+        {'key': 'proxy_hosts', 'value_key': 'hosts_value', 'params': {'on': 2, 'off': 1}},
+        {'key': 'certificates', 'value_key': 'certs_soon', 'params': {'n': 1}, 'state': 'warn'}]
+    assert read('portainer', 'http://portainer:9000', token='t') == [
+        {'key': 'containers', 'value_key': 'containers_value', 'params': {'running': 2, 'stopped': 1}},
+        {'key': 'unhealthy', 'value': '1', 'state': 'bad'}]
+    assert read('grafana', 'http://grafana', token='t')[0] == {'key': 'alerts', 'value': '2', 'state': 'bad'}
+    assert read('opnsense', 'https://opnsense', key='k', secret='s') == [
+        {'key': 'internet', 'value': '12.3 ms', 'state': 'ok'}, {'key': 'memory', 'value': '42%'}]   # traffic needs two readings
+    assert read('openwrt', 'http://ap1', username='u', password='p') == [
+        {'key': 'wifi_clients', 'value': '6'}, {'key': 'uptime', 'value': '3 g 2 h'}, {'key': 'load', 'value': '0.20'}]

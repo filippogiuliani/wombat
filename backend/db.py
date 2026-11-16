@@ -8,7 +8,7 @@ from contextlib import contextmanager
 DATA_DIR = os.environ.get('WEHUB_DATA', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
 DB_PATH = os.path.join(DATA_DIR, 'wehub.db')
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 ROLES = ['admin', 'member']
 PERSON_KINDS = ['adult', 'child']
 # full = everything the app offers; limited = only what is about some people (used by apps that support it)
@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS shortcuts (
     icon TEXT NOT NULL DEFAULT 'link',          -- see icons.py
     grp TEXT NOT NULL DEFAULT '',               -- group on the home page ('' = none), as in Homepage's services.yaml
     monitor INTEGER NOT NULL DEFAULT 1,         -- 1 = the home page shows whether the service is up (status.py)
+    widget TEXT NOT NULL DEFAULT '',            -- live numbers under the link (widgets.py): {type, url, …} as JSON
+    widget_secret TEXT NOT NULL DEFAULT '',     -- the widget's keys/passwords (JSON): never sent to the browser
     everyone INTEGER NOT NULL DEFAULT 1,        -- 0 = only the members in shortcut_members
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -166,6 +168,9 @@ def _migrate(conn):
         conn.execute("ALTER TABLE shortcuts ADD COLUMN grp TEXT NOT NULL DEFAULT ''")
     if 'monitor' not in cols:  # version 3: is the service up?
         conn.execute('ALTER TABLE shortcuts ADD COLUMN monitor INTEGER NOT NULL DEFAULT 1')
+    if 'widget' not in cols:  # version 4: widgets
+        conn.execute("ALTER TABLE shortcuts ADD COLUMN widget TEXT NOT NULL DEFAULT ''")
+        conn.execute("ALTER TABLE shortcuts ADD COLUMN widget_secret TEXT NOT NULL DEFAULT ''")
 
 
 def init_db():

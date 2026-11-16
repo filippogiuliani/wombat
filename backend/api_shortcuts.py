@@ -3,6 +3,8 @@ Homepage (gethomepage.dev). A Homepage services.yaml can be imported as it is.
 
 Everyone sees the links meant for everyone and those the admin chose for them; the admin manages them.
 Hiding a link does not protect the service: it keeps its own sign-in."""
+import hashlib
+import json
 import os
 import re
 from urllib.parse import urlparse
@@ -13,18 +15,27 @@ from werkzeug.exceptions import HTTPException
 
 import db
 import icons
+import widgets
 from auth import require_admin
 from common import body, text
 
 bp = Blueprint('shortcuts', __name__)
 MAX = 100
-COLS = 'id, name, url, description, icon, grp AS "group", monitor'
+COLS = 'id, name, url, description, icon, grp AS "group", monitor, widget, widget_secret'
 
 
-def _decorate(r):
+def _decorate(r, admin=False):
+    """A link for the page. Everyone learns only whether it has a widget; the admin also gets its settings, and for
+    each key or password only whether it is set (never the value)."""
     r = dict(r)
     r['monitor'] = bool(r['monitor'])
     r.update(icons.describe(r['icon'], r['id']))
+    cfg = json.loads(r.pop('widget') or '{}')
+    secrets = json.loads(r.pop('widget_secret') or '{}')
+    r['has_widget'] = bool(cfg.get('type'))
+    if admin:
+        r['widget'] = cfg if cfg.get('type') else None
+        r['widget_secrets'] = {k: bool(v) for k, v in secrets.items()}
     return r
 
 
@@ -37,7 +48,7 @@ def visible(conn, family_id, user_id):
 
 
 def _all(conn):
-    rows = [_decorate(r) for r in conn.execute(f'SELECT {COLS}, everyone, position FROM shortcuts '
+    rows = [_decorate(r, admin=True) for r in conn.execute(f'SELECT {COLS}, everyone, position FROM shortcuts '
                                                'WHERE family_id = ? ORDER BY position, id', (g.family_id,))]
     members = {}
     for r in conn.execute('''SELECT m.shortcut_id, m.user_id FROM shortcut_members m JOIN shortcuts s ON s.id = m.shortcut_id
@@ -62,7 +73,43 @@ def _url(value):
     return url
 
 
-def _fields(conn):
+def _widget(conn, w, sid=None):
+    """(settings, secrets) as JSON for the database, from what the admin sent. A key or password left empty keeps the
+    one already saved (the page never has it to send back); another kind of widget starts without any."""
+    if not isinstance(w, dict) or not w.get('type'):
+        return '', ''
+    kind = w['type']
+    spec = widgets.TYPES.get(kind)
+    if not spec:
+        abort(400, 'Unknown widget')
+    cfg = {'type': kind, 'url': _url(w['url']) if text(w.get('url'), 500) else '', 'insecure': bool(w.get('insecure'))}
+    if 'wan' in spec['fields']:
+        cfg['wan'] = text(w.get('wan'), 20) or 'wan'
+    if 'queries' in spec['fields']:
+        queries = []
+        for q in (w.get('queries') or [])[:widgets.MAX_LINES]:
+            if isinstance(q, dict) and text(q.get('query'), 500):
+                fmt = q.get('format') if q.get('format') in widgets.FORMATS else 'number'
+                queries.append({'label': text(q.get('label'), 40) or 'Valore', 'query': text(q.get('query'), 500), 'format': fmt})
+        if not queries:
+            abort(400, 'Add at least one query')
+        cfg['queries'] = queries
+    old_cfg, old = {}, {}
+    if sid:
+        r = conn.execute('SELECT widget, widget_secret FROM shortcuts WHERE id = ?', (sid,)).fetchone()
+        old_cfg, old = json.loads(r['widget'] or '{}'), json.loads(r['widget_secret'] or '{}')
+    sent = w.get('secrets') if isinstance(w.get('secrets'), dict) else {}
+    secrets = {}
+    for name in spec['secrets']:
+        value = sent.get(name)
+        if isinstance(value, str) and value.strip():
+            secrets[name] = value.strip()[:1000]
+        elif old_cfg.get('type') == kind and old.get(name):
+            secrets[name] = old[name]
+    return json.dumps(cfg), json.dumps(secrets)
+
+
+def _fields(conn, sid=None):
     d = body()
     name = text(d.get('name'), 60)
     if not name:
@@ -77,9 +124,10 @@ def _fields(conn):
     members = sorted({int(m) for m in members if str(m).isdigit() and int(m) in ok_ids})
     if not everyone and not members:
         abort(400, 'Choose who sees it')
+    widget, widget_secret = _widget(conn, d.get('widget'), sid)
     return {'name': name, 'url': url, 'description': text(d.get('description'), 120), 'icon': icon,
             'group': text(d.get('group'), 60), 'monitor': 0 if d.get('monitor') is False else 1,
-            'everyone': 1 if everyone else 0}, members
+            'everyone': 1 if everyone else 0, 'widget': widget, 'widget_secret': widget_secret}, members
 
 
 def _set_members(conn, sid, members):
@@ -102,6 +150,23 @@ def status_of_mine():
         links = [l for l in visible(conn, g.family_id, g.user['id']) if l['monitor']]
     results = status.check_many([l['url'] for l in links])
     return jsonify({str(l['id']): results[l['url']] for l in links})
+
+
+@bp.get('/shortcuts/widgets')
+def widgets_of_mine():
+    """{link id: {items} | {error}} for the links with a widget this member sees (read at most once a minute)."""
+    with db.transaction() as conn:
+        ids = [l['id'] for l in visible(conn, g.family_id, g.user['id']) if l['has_widget']]
+        rows = conn.execute(f"SELECT id, url, widget, widget_secret FROM shortcuts WHERE id IN ({','.join('?' * len(ids))})",
+                            ids).fetchall() if ids else []
+    todo = []
+    for r in rows:
+        cfg = json.loads(r['widget'])
+        # by default the link's own address (for kwIRC, its widget page)
+        cfg['url'] = cfg.get('url') or (r['url'].rstrip('/') + '/api/widget' if cfg['type'] == 'kwirc' else r['url'])
+        stamp = hashlib.sha256((r['widget'] + r['widget_secret'] + r['url']).encode()).hexdigest()
+        todo.append((r['id'], cfg, json.loads(r['widget_secret'] or '{}'), stamp))
+    return jsonify({str(k): v for k, v in widgets.read_many(todo).items()})
 
 
 @bp.get('/family/shortcuts')
@@ -131,9 +196,10 @@ def _insert(conn, f):
     else:
         pos = last + 1
         conn.execute('UPDATE shortcuts SET position = position + 1 WHERE family_id = ? AND position >= ?', (g.family_id, pos))
-    return conn.execute('INSERT INTO shortcuts (family_id, name, url, description, icon, grp, monitor, everyone, position) '
-                        'VALUES (?,?,?,?,?,?,?,?,?)', (g.family_id, f['name'], f['url'], f['description'], f['icon'],
-                                                       f['group'], f.get('monitor', 1), f['everyone'], pos)).lastrowid
+    return conn.execute('INSERT INTO shortcuts (family_id, name, url, description, icon, grp, monitor, everyone, position, '
+                        'widget, widget_secret) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                        (g.family_id, f['name'], f['url'], f['description'], f['icon'], f['group'], f.get('monitor', 1),
+                         f['everyone'], pos, f.get('widget', ''), f.get('widget_secret', ''))).lastrowid
 
 
 def _own(conn, sid):
@@ -146,9 +212,11 @@ def update(sid):
     require_admin()
     with db.transaction() as conn:
         _own(conn, sid)
-        f, members = _fields(conn)
-        conn.execute('UPDATE shortcuts SET name = ?, url = ?, description = ?, icon = ?, grp = ?, monitor = ?, everyone = ? WHERE id = ?',
-                     (f['name'], f['url'], f['description'], f['icon'], f['group'], f['monitor'], f['everyone'], sid))
+        f, members = _fields(conn, sid)
+        conn.execute('UPDATE shortcuts SET name = ?, url = ?, description = ?, icon = ?, grp = ?, monitor = ?, everyone = ?, '
+                     'widget = ?, widget_secret = ? WHERE id = ?',
+                     (f['name'], f['url'], f['description'], f['icon'], f['group'], f['monitor'], f['everyone'],
+                      f['widget'], f['widget_secret'], sid))
         _set_members(conn, sid, [] if f['everyone'] else members)
         return jsonify(_all(conn))
 
