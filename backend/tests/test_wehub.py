@@ -535,7 +535,8 @@ def _fake_http(monkeypatch, routes):
     calls = []
 
     class R:
-        def __init__(self, data, code=200): self.data, self.status_code = data, code
+        def __init__(self, data, code=200):
+            self.data, self.status_code, self.text = data, code, data if isinstance(data, str) else ''
         def json(self): return self.data
 
     def request(method, url, **kw):
@@ -672,3 +673,22 @@ def test_home_assistant_widget(admin, monkeypatch):
     r = admin.post('/api/family/shortcuts', json={'name': 'Casa', 'url': 'http://ha:8123', 'widget': {
         'type': 'homeassistant', 'entities': [{'label': 'x', 'entity': 'sensor.temp; drop'}], 'secrets': {'token': 't'}}})
     assert r.status_code == 400
+
+
+def test_home_assistant_observer_widget(monkeypatch):
+    import widgets
+    row = lambda name, cls, body: f'<tr><td>{name}:</td>\n<td class="{cls}">\n  {body}\n</td></tr>'
+    good = row('Supervisor', 'connected', 'Connected') + row('Supported', 'connected', 'Supported') + row('Healthy', 'connected', 'Healthy')
+    bad = (row('Supervisor', 'connected', 'Connected') + row('Supported', 'connected', 'Supported')
+           + row('Healthy', 'disconnected', 'Unhealthy\n <li class="reason"><a href="https://www.home-assistant.io/more-info/unhealthy/docker">docker</a></li>'))
+    down = row('Supervisor', 'disconnected', 'Disconnected') + '<pre class="log">boot…</pre>'
+    _fake_http(monkeypatch, {('GET', 'http://ha1:4357'): f'<html>{good}</html>', ('GET', 'http://ha2:4357'): bad,
+                             ('GET', 'http://ha3:4357'): down, ('GET', 'http://ha4:4357'): '<html>altro</html>'})
+    read = lambda url: widgets._safe_read((1, {'type': 'ha_observer', 'url': url}, {}))
+    assert read('http://ha1:4357')['items'] == [
+        {'key': 'ha_supervisor', 'value_key': 'ha_connected', 'params': {}, 'state': 'ok'},
+        {'key': 'ha_supported', 'value_key': 'ok', 'params': {}, 'state': 'ok'},
+        {'key': 'ha_healthy', 'value_key': 'ok', 'params': {}, 'state': 'ok'}]
+    assert read('http://ha2:4357')['items'][2] == {'key': 'ha_healthy', 'value_key': 'ha_healthy_no', 'params': {'reasons': 'docker'}, 'state': 'bad'}
+    assert read('http://ha3:4357')['items'] == [{'key': 'ha_supervisor', 'value_key': 'ha_disconnected', 'params': {}, 'state': 'bad'}]
+    assert read('http://ha4:4357') == {'error': 'not_data', 'params': {}}

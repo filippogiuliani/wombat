@@ -11,10 +11,10 @@
   const ICONS = ['link', 'lock', 'home', 'photo', 'film', 'music', 'server', 'chart', 'mail', 'calendar', 'book', 'cloud', 'tool'];
   let links = $state([]);
   // Widgets: what each kind asks for (keys and passwords are write-only: the page only knows whether they are saved)
-  const WIDGETS = ['kwirc', 'jellyfin', 'npm', 'portainer', 'adguard', 'grafana', 'prometheus', 'opnsense', 'openwrt', 'homeassistant', 'generic'];
+  const WIDGETS = ['kwirc', 'jellyfin', 'npm', 'portainer', 'adguard', 'grafana', 'prometheus', 'opnsense', 'openwrt', 'homeassistant', 'ha_observer', 'generic'];
   const SECRETS = { kwirc: ['token'], generic: ['token'], jellyfin: ['api_key'], npm: ['email', 'password'], portainer: ['token'],
                     adguard: ['username', 'password'], grafana: ['token'], prometheus: [], opnsense: ['key', 'secret'], openwrt: ['username', 'password'],
-                    homeassistant: ['token'] };
+                    homeassistant: ['token'], ha_observer: [] };
   const PLAIN = ['email', 'username'];       // shown as text; the rest as passwords
   const FORMATS = ['number', 'percent', 'ratio', 'bytes', 'ago', 'duration', 'bool'];
   const emptyWidget = () => ({ type: '', url: '', insecure: false, wan: 'wan', queries: [{ label: '', query: '', format: 'number' }], entities: [], secrets: {} });

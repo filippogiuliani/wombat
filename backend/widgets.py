@@ -46,13 +46,15 @@ TYPES = {
     'opnsense':   {'secrets': ['key', 'secret'], 'fields': ['wan']},
     'openwrt':    {'secrets': ['username', 'password'], 'fields': []},
     'homeassistant': {'secrets': ['token'], 'fields': ['entities']},
+    'ha_observer': {'secrets': [], 'fields': []},
 }
 FORMATS = ('number', 'percent', 'ratio', 'bytes', 'ago', 'bool', 'duration')
 
 
 # ---------- small helpers ----------
 
-def _req(method, url, cfg, **kw):
+def _req(method, url, cfg, raw=False, **kw):
+    """The JSON a service answers (or its text, with raw), errors turned into WidgetError."""
     try:
         r = requests.request(method, url, timeout=TIMEOUT, verify=not cfg.get('insecure'), **kw)
     except requests.exceptions.SSLError:
@@ -67,6 +69,8 @@ def _req(method, url, cfg, **kw):
         raise WidgetError('not_found')
     if r.status_code >= 400:
         raise WidgetError('http', code=r.status_code)
+    if raw:
+        return r.text
     try:
         return r.json()
     except ValueError:
@@ -377,6 +381,30 @@ def _homeassistant(cfg, sec):
     return lines
 
 
+def _ha_observer(cfg, sec):
+    """Home Assistant OS's Observer (port 4357): a public page that says whether the Supervisor answers, and whether
+    the system is supported and healthy (with the reasons when not). No API: the words of its page."""
+    import re
+    page = _req('GET', _base(cfg) or '', cfg, raw=True)
+    text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', page))
+    if 'Supervisor' not in text:
+        raise WidgetError('not_data')
+    connected = not re.search(r'Supervisor:\s*Disconnected', text)
+    lines = [_line('ha_supervisor', value_key='ha_connected' if connected else 'ha_disconnected', state='ok' if connected else 'bad')]
+    if not connected:
+        return lines
+    for key, good, bad in (('ha_supported', 'Supported', 'Unsupported'), ('ha_healthy', 'Healthy', 'Unhealthy')):
+        m = re.search(rf'\b{bad}\b\s*((?:[a-z0-9_]+\s*)*)', text)
+        if m:
+            reasons = ', '.join(m.group(1).split()[:3])
+            lines.append(_line(key, value_key=key + '_no', state='bad', reasons=reasons))
+        elif re.search(rf'\b{good}\b', text):
+            lines.append(_line(key, value_key='ok', state='ok'))
+        else:
+            lines.append(_line(key, value_key='ha_checking'))      # "Processing...": the Supervisor is busy answering
+    return lines
+
+
 def _read(link_id, cfg, sec):
     kind = cfg.get('type')
     if kind in ('kwirc', 'generic'):
@@ -385,7 +413,8 @@ def _read(link_id, cfg, sec):
         lines = _opnsense(cfg, sec, link_id)
     else:
         lines = {'jellyfin': _jellyfin, 'npm': _npm, 'portainer': _portainer, 'adguard': _adguard, 'grafana': _grafana,
-                 'prometheus': _prometheus, 'openwrt': _openwrt, 'homeassistant': _homeassistant}[kind](cfg, sec)
+                 'prometheus': _prometheus, 'openwrt': _openwrt, 'homeassistant': _homeassistant,
+                 'ha_observer': _ha_observer}[kind](cfg, sec)
     return {'items': lines[:MAX_LINES]}
 
 
