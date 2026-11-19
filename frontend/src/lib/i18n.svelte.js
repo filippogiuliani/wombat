@@ -7,7 +7,7 @@ export const LANGUAGES = [
   { id: 'en', name: 'English' },
 ];
 const DICTIONARIES = { it, en };
-const STORAGE_KEY = 'wehub.language';
+const STORAGE_KEY = 'wombat.language';
 
 export const DEFAULT_LANGUAGE = 'it';
 // Browser preferences, e.g. ['pt-BR', 'pt', 'en-US']

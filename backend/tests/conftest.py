@@ -3,14 +3,14 @@ import os
 import sys
 import tempfile
 
-os.environ['WEHUB_DATA'] = tempfile.mkdtemp(prefix='wehub-test-')
-for k in [k for k in os.environ if k.startswith('WEHUB_') and k != 'WEHUB_DATA']:
+os.environ['WOMBAT_DATA'] = tempfile.mkdtemp(prefix='wombat-test-')
+for k in [k for k in os.environ if k.startswith('WOMBAT_') and k != 'WOMBAT_DATA']:
     del os.environ[k]
-KEYS = {'dotrack': 'k-dotrack-' + 'x' * 30, 'eatrack': 'k-eatrack-' + 'y' * 30, 'patrack': 'k-patrack-' + 'z' * 30}
-os.environ['WEHUB_APPS'] = 'dotrack,eatrack,patrack'
+KEYS = {'kooka': 'k-kooka-' + 'x' * 30, 'wallaby': 'k-wallaby-' + 'y' * 30, 'pelican': 'k-pelican-' + 'z' * 30}
+os.environ['WOMBAT_APPS'] = 'kooka,wallaby,pelican'
 for app_id, key in KEYS.items():
-    os.environ[f'WEHUB_APP_{app_id.upper()}_URL'] = f'http://{app_id}.test'
-    os.environ[f'WEHUB_APP_{app_id.upper()}_KEY'] = key
+    os.environ[f'WOMBAT_APP_{app_id.upper()}_URL'] = f'http://{app_id}.test'
+    os.environ[f'WOMBAT_APP_{app_id.upper()}_KEY'] = key
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest  # noqa: E402
@@ -35,7 +35,7 @@ def outbox(monkeypatch):
 @pytest.fixture
 def app(tmp_path, monkeypatch, outbox):
     monkeypatch.setattr(db, 'DATA_DIR', str(tmp_path))
-    monkeypatch.setattr(db, 'DB_PATH', str(tmp_path / 'wehub.db'))
+    monkeypatch.setattr(db, 'DB_PATH', str(tmp_path / 'wombat.db'))
     monkeypatch.setattr(backup, 'BACKUP_DIR', str(tmp_path / 'backups'))
     monkeypatch.setattr(oidc, 'PROVIDERS', {})
     import push

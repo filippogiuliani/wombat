@@ -2,7 +2,7 @@
   // The app's own icon (the same one it shows in its tab and on the phone), a generic one for other apps
   import Icon from './Icon.svelte';
   let { id, size = 48 } = $props();
-  const KNOWN = ['dotrack', 'eatrack', 'patrack'];
+  const KNOWN = ['kooka', 'wallaby', 'pelican'];
 </script>
 
 {#if KNOWN.includes(id)}

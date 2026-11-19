@@ -1,7 +1,7 @@
 """Authentication: users, sessions, single-use tokens and rate limiting.
 
 In production people sign in only with the OIDC provider (Pocket ID). Password sign-in exists for development and
-for a first admin before the provider is set up (WEHUB_PASSWORD_LOGIN=0 turns it off)."""
+for a first admin before the provider is set up (WOMBAT_PASSWORD_LOGIN=0 turns it off)."""
 import datetime
 import hashlib
 import os
@@ -22,11 +22,11 @@ from common import body, text
 
 bp = Blueprint('auth', __name__)
 
-# WEHUB_SIGNUP=open: anyone signing in creates their own family. Default closed: only the very first user does,
+# WOMBAT_SIGNUP=open: anyone signing in creates their own family. Default closed: only the very first user does,
 # everybody else is added by an admin (by email) and then signs in.
-SIGNUP_OPEN = os.environ.get('WEHUB_SIGNUP', 'closed') == 'open'
-PASSWORD_LOGIN = os.environ.get('WEHUB_PASSWORD_LOGIN', '1') not in ('0', 'off', 'false', 'no')
-BASE_URL = os.environ.get('WEHUB_URL', '').rstrip('/')
+SIGNUP_OPEN = os.environ.get('WOMBAT_SIGNUP', 'closed') == 'open'
+PASSWORD_LOGIN = os.environ.get('WOMBAT_PASSWORD_LOGIN', '1') not in ('0', 'off', 'false', 'no')
+BASE_URL = os.environ.get('WOMBAT_URL', '').rstrip('/')
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 PASSWORD_MIN = 8
 NO_PASSWORD = '!'
@@ -199,7 +199,7 @@ def signup():
 def create_user(conn, name, email, password_hash, email_verified, language=None):
     """A new account with its own family (admin, access to every app). Only when sign-up is open or nobody exists yet."""
     if not SIGNUP_OPEN and conn.execute('SELECT COUNT(*) FROM users').fetchone()[0] > 0:
-        abort(403, 'Ask the family admin to add you in weHub')
+        abort(403, 'Ask the family admin to add you in Wombat')
     if conn.execute('SELECT 1 FROM users WHERE email = ?', (email,)).fetchone():
         abort(409, 'An account with this email already exists')
     lang = i18n.normalize(language) or i18n.language()

@@ -2,7 +2,7 @@
 **/node_modules
 backend/static
 backend/data
-weHub_data
+Wombat_data
 .env
 **/__pycache__
 backend/tests

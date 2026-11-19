@@ -1,4 +1,4 @@
-"""API for the apps (doTrack, eaTrack, paTrack), authenticated with each app's key (Authorization: Bearer <key>).
+"""API for the apps (Kooka, Wallaby, Pelican), authenticated with each app's key (Authorization: Bearer <key>).
 
 - POST /api/service/whoami       after a sign-in with Pocket ID: who is this person, which families may they use
                                  this app in, and what those families look like
@@ -7,9 +7,9 @@
 A snapshot: {hub_id, name, version, local_id, members: [{hub_id, name, email, role, level, apps}],
              people: [{hub_id, name, birth_date, kind, user_hub_id, local_id}], apps: [{id, name, url, description}]}
 members[].apps: the apps that member may use in the family (for the app switcher).
-local_id is the app's own id of that family/person when weHub knows it (from the import): the app adopts that row.
+local_id is the app's own id of that family/person when Wombat knows it (from the import): the app adopts that row.
 
-- /api/service/apps/<app>/families/<id>/<path>?user=<id>   one app asking another (see ALLOWED): weHub passes the
+- /api/service/apps/<app>/families/<id>/<path>?user=<id>   one app asking another (see ALLOWED): Wombat passes the
   request on to <app>'s /api/hub/families/<id>/<path> with that app's key, adding ?level= (the person's access to
   <app>, empty when none) and ?from= (the asking app)."""
 import re
@@ -76,7 +76,7 @@ def whoami():
         u = conn.execute('''SELECT u.* FROM identities i JOIN users u ON u.id = i.user_id
                             WHERE i.issuer = ? AND i.subject = ?''', (issuer, subject)).fetchone()
         if not u and email and d.get('email_verified'):
-            # First time this person comes through an app: their account in weHub has the same (verified) email
+            # First time this person comes through an app: their account in Wombat has the same (verified) email
             u = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
             if u:
                 conn.execute('INSERT OR IGNORE INTO identities (provider, subject, user_id, email, issuer) VALUES (?,?,?,?,?)',
@@ -104,19 +104,19 @@ def family(family_id):
         return jsonify(snapshot(conn, family_id))
 
 
-# ---------- One app asking another, through weHub ----------
-# The asking app never needs the other app's address or key: weHub passes the request on with the key it holds, for a
+# ---------- One app asking another, through Wombat ----------
+# The asking app never needs the other app's address or key: Wombat passes the request on with the key it holds, for a
 # family the person is in and may use the asking app in. Only the calls listed here go through.
 #   (asking app, answering app): [(method, path regex, the person must also have access to the answering app)]
 ALLOWED = {
-    ('eatrack', 'dotrack'): [('GET', r'/lists', False),                      # weekly menu → shopping list
+    ('wallaby', 'kooka'): [('GET', r'/lists', False),                      # weekly menu → shopping list
                              ('POST', r'/lists/\d+/items', False)],
-    ('patrack', 'dotrack'): [('PUT', r'/deadlines/patrack-\d+', False),       # a document's expiry → a deadline
-                             ('DELETE', r'/deadlines/patrack-\d+', False)],
-    ('dotrack', 'patrack'): [('POST', r'/documents', True)],                 # a deadline's document → the archive
-    ('eatrack', 'patrack'): [('GET', r'/plans', True)],                      # the paediatrician's plans of a child
+    ('pelican', 'kooka'): [('PUT', r'/deadlines/pelican-\d+', False),       # a document's expiry → a deadline
+                             ('DELETE', r'/deadlines/pelican-\d+', False)],
+    ('kooka', 'pelican'): [('POST', r'/documents', True)],                 # a deadline's document → the archive
+    ('wallaby', 'pelican'): [('GET', r'/plans', True)],                      # the paediatrician's plans of a child
 }
-MAX_RELAYED = 30 * 1024 * 1024   # a document (base64) from doTrack to paTrack; everything else stays under 1 MB
+MAX_RELAYED = 30 * 1024 * 1024   # a document (base64) from Kooka to Pelican; everything else stays under 1 MB
 PASSED_ON = (200, 201, 400, 403, 404, 409)
 
 
@@ -143,7 +143,7 @@ def relay(target, family_id, path):
         abort(403, 'This app may not ask that')
     app = apps.get(target)
     if not app or not app['key']:
-        abort(404, f'{target} is not connected to weHub')
+        abort(404, f'{target} is not connected to Wombat')
     user_id = request.args.get('user', type=int)
     with db.transaction() as conn:
         if not _level(conn, family_id, user_id, g.app['id']):
@@ -157,7 +157,7 @@ def relay(target, family_id, path):
     try:
         r = requests.request(request.method, f"{app['internal_url']}/api/hub/families/{family_id}{path}", params=params,
                              json=payload, timeout=10, allow_redirects=False,
-                             headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'weHub'})
+                             headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'Wombat'})
     except requests.RequestException:
         return jsonify(error=f"{app['name']} is not reachable"), 502
     try:
@@ -167,12 +167,12 @@ def relay(target, family_id, path):
     return jsonify(data), (r.status_code if r.status_code in PASSED_ON else 502)
 
 
-# The addresses eaTrack used before the general route (images built before 2026-11-13)
-@bp.get('/service/dotrack/families/<int:family_id>/lists')
-def dotrack_lists(family_id):
-    return relay('dotrack', family_id, 'lists')
+# The addresses Wallaby used before the general route (images built before 2026-11-13)
+@bp.get('/service/kooka/families/<int:family_id>/lists')
+def kooka_lists(family_id):
+    return relay('kooka', family_id, 'lists')
 
 
-@bp.post('/service/dotrack/families/<int:family_id>/lists/<int:list_id>/items')
-def dotrack_items(family_id, list_id):
-    return relay('dotrack', family_id, f'lists/{list_id}/items')
+@bp.post('/service/kooka/families/<int:family_id>/lists/<int:list_id>/items')
+def kooka_items(family_id, list_id):
+    return relay('kooka', family_id, f'lists/{list_id}/items')

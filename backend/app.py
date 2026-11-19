@@ -1,4 +1,4 @@
-"""weHub – Flask server: JSON API under /api (the interface and /api/service for the apps) and the built frontend."""
+"""Wombat – Flask server: JSON API under /api (the interface and /api/service for the apps) and the built frontend."""
 import datetime
 import os
 import secrets
@@ -24,8 +24,8 @@ CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inlin
 
 
 def _secret_key():
-    if os.environ.get('WEHUB_SECRET_KEY'):
-        return os.environ['WEHUB_SECRET_KEY']
+    if os.environ.get('WOMBAT_SECRET_KEY'):
+        return os.environ['WOMBAT_SECRET_KEY']
     path = os.path.join(db.DATA_DIR, '.secret_key')
     if not os.path.exists(path):
         os.makedirs(db.DATA_DIR, exist_ok=True)
@@ -41,11 +41,11 @@ def create_app():
     app = Flask(__name__, static_folder=None)
     app.secret_key = _secret_key()
     app.config.update(
-        SESSION_COOKIE_NAME='wehub_session', SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
-        SESSION_COOKIE_SECURE=os.environ.get('WEHUB_COOKIE_SECURE') == '1',
+        SESSION_COOKIE_NAME='wombat_session', SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SECURE=os.environ.get('WOMBAT_COOKIE_SECURE') == '1',
         PERMANENT_SESSION_LIFETIME=datetime.timedelta(days=60), MAX_CONTENT_LENGTH=service.MAX_RELAYED, JSON_AS_ASCII=False,
     )
-    if os.environ.get('WEHUB_PROXY') == '1':
+    if os.environ.get('WOMBAT_PROXY') == '1':
         from werkzeug.middleware.proxy_fix import ProxyFix
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
@@ -55,7 +55,7 @@ def create_app():
 
     @app.before_request
     def size_limit():
-        # 1 MB is plenty for weHub itself; only documents passed from one app to another are bigger
+        # 1 MB is plenty for Wombat itself; only documents passed from one app to another are bigger
         if (request.content_length or 0) > 1024 * 1024 and not request.path.startswith('/api/service/apps/'):
             abort(413)
 
@@ -120,8 +120,8 @@ if __name__ == '__main__':
     for a in apps.ids():
         cfg = apps.get(a)
         if len(cfg['key']) < 24:
-            print(f'[weHub] WARNING: app "{a}" has no key (WEHUB_APP_{a.upper()}_KEY, at least 24 characters)', flush=True)
-    print(f'[weHub] listening on http://0.0.0.0:{port} – apps: {", ".join(apps.ids()) or "none"}', flush=True)
+            print(f'[Wombat] WARNING: app "{a}" has no key (WOMBAT_APP_{a.upper()}_KEY, at least 24 characters)', flush=True)
+    print(f'[Wombat] listening on http://0.0.0.0:{port} – apps: {", ".join(apps.ids()) or "none"}', flush=True)
     proxy = {'trusted_proxy': '*', 'trusted_proxy_headers': {'x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host'}} \
-        if os.environ.get('WEHUB_PROXY') == '1' else {}
+        if os.environ.get('WOMBAT_PROXY') == '1' else {}
     serve(app, host='0.0.0.0', port=port, threads=8, **proxy)

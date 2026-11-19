@@ -1,13 +1,13 @@
 """Icons of the home-page links, written as in Homepage (gethomepage.dev):
 
-  lock, home, film…           one of weHub's own line icons (db.SHORTCUT_ICONS)
+  lock, home, film…           one of Wombat's own line icons (db.SHORTCUT_ICONS)
   jellyfin.png / jellyfin     dashboard-icons (github.com/homarr-labs/dashboard-icons), .png .svg or .webp
   sh-immich(.png)             selfh.st icons
   mdi-logout                  Material Design Icons (drawn in the text colour)
   si-gitea                    Simple Icons (drawn in the text colour)
   https://…/logo.png          any image
 
-weHub downloads each icon once and keeps it in <data>/icons: browsers only ever load icons from weHub itself (no
+Wombat downloads each icon once and keeps it in <data>/icons: browsers only ever load icons from Wombat itself (no
 third-party requests, the CSP stays 'self'). Only the admin can choose an address, and what comes back is kept only
 if it is an image."""
 import hashlib
@@ -43,7 +43,7 @@ def _split(name):
 
 def resolve(spec):
     """(kind, source): kind is 'builtin' (source = icon name), 'mono' (an SVG drawn in the text colour) or 'image';
-    None when the text is not an icon weHub understands."""
+    None when the text is not an icon Wombat understands."""
     s = str(spec or '').strip()
     if not s:
         return None
@@ -66,7 +66,7 @@ def resolve(spec):
 
 
 def clean(spec):
-    """The icon as stored: what the admin wrote when weHub understands it, otherwise the plain link icon."""
+    """The icon as stored: what the admin wrote when Wombat understands it, otherwise the plain link icon."""
     s = str(spec or '').strip()[:500]
     if s.startswith(('http://', 'https://', 'HTTP://', 'HTTPS://')):
         return s
@@ -95,7 +95,7 @@ def _dir():
 def _download(url):
     """(bytes, ext) or None. Only images, at most MAX_BYTES."""
     try:
-        with requests.get(url, timeout=TIMEOUT, stream=True, headers={'User-Agent': 'weHub'}) as r:
+        with requests.get(url, timeout=TIMEOUT, stream=True, headers={'User-Agent': 'Wombat'}) as r:
             if r.status_code != 200 or not r.url.lower().startswith(('http://', 'https://')):
                 return None
             ctype = r.headers.get('Content-Type', '').split(';')[0].strip().lower()

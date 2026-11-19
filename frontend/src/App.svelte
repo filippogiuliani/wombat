@@ -68,7 +68,7 @@
 {:else}
   <div class="shell">
     <nav class="nav" aria-label={t('nav.sections')}>
-      <a class="logo" href="#/home"><img src="/icon.svg" alt="" width="28" height="28" /><span>weHub</span></a>
+      <a class="logo" href="#/home"><img src="/icon.svg" alt="" width="28" height="28" /><span>Wombat</span></a>
       {#each nav as id (id)}
         <a href="#/{id}" class:on={page === id} aria-current={page === id ? 'page' : undefined}>
           <span class="ico"><Icon name={ICONS[id]} size={22} /></span>

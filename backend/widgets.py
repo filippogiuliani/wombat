@@ -1,5 +1,5 @@
 """Widgets on the home-page links: a few live numbers under a link (who is watching on Jellyfin, containers running,
-DNS queries blocked…), read by weHub from each service's API, like Homepage's widgets.
+DNS queries blocked…), read by Wombat from each service's API, like Homepage's widgets.
 
 Credentials stay here: the browser only ever gets the lines to show, and only for the links the person sees. Every
 widget is read at most once a minute (in parallel, with a short timeout), so the home page never waits on a service.
@@ -143,7 +143,7 @@ def _generic(cfg, sec):
 def _jellyfin(cfg, sec):
     key = sec.get('api_key', '').strip()
     # The current way (Jellyfin 10.11 turns the old headers off by default), and the old one for older servers
-    h = {'Authorization': f'MediaBrowser Client="weHub", Device="weHub", DeviceId="wehub-widget", Version="1", Token="{key}"',
+    h = {'Authorization': f'MediaBrowser Client="Wombat", Device="Wombat", DeviceId="wombat-widget", Version="1", Token="{key}"',
          'X-Emby-Token': key}
     sessions = _req('GET', f'{_base(cfg)}/Sessions', cfg, headers=h, params={'activeWithinSeconds': 120})
     playing = [s for s in sessions if s.get('NowPlayingItem')]

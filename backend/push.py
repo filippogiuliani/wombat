@@ -54,7 +54,7 @@ def flush():
         for fid in families:
             try:
                 r = requests.post(f"{app['internal_url']}/api/hub/changed", json={'family': fid}, timeout=5,
-                                  allow_redirects=False, headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'weHub'})
+                                  allow_redirects=False, headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'Wombat'})
                 if r.status_code == 200:
                     told.setdefault(app_id, []).append(fid)
                 elif r.status_code != 404:   # 404: an app image without /changed yet, it refreshes on its own

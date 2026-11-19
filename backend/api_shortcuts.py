@@ -287,7 +287,7 @@ def _services(doc):
 @bp.post('/family/shortcuts/import')
 def import_yaml():
     """{yaml}: the links of a Homepage services.yaml. A link with the same address is updated, the others added
-    (for everyone). Fields weHub does not use (container, server, widget, ping…) are ignored."""
+    (for everyone). Fields Wombat does not use (container, server, widget, ping…) are ignored."""
     require_admin()
     src = body().get('yaml')
     if not isinstance(src, str) or not src.strip():
@@ -330,7 +330,7 @@ def import_yaml():
 
 @bp.get('/icons/<int:sid>')
 def icon(sid):
-    """The image of a link's icon, downloaded once and kept by weHub (see icons.py)."""
+    """The image of a link's icon, downloaded once and kept by Wombat (see icons.py)."""
     with db.transaction() as conn:
         r = conn.execute('SELECT icon FROM shortcuts WHERE id = ? AND family_id = ?', (sid, g.family_id)).fetchone()
     if not r:

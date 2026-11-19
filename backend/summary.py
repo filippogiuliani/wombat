@@ -1,5 +1,5 @@
-"""weHub's home: a short summary from each app the person may use in the family (what is coming up in doTrack,
-today's meals in eaTrack, documents to fix or expiring in paTrack). weHub asks the apps in parallel, with its keys
+"""Wombat's home: a short summary from each app the person may use in the family (what is coming up in Kooka,
+today's meals in Wallaby, documents to fix or expiring in Pelican). Wombat asks the apps in parallel, with its keys
 (GET /api/hub/families/<id>/summary, see each app's hub_hooks / links); an app that does not answer in a few seconds
 is simply left out."""
 from concurrent.futures import ThreadPoolExecutor
@@ -17,8 +17,8 @@ TIMEOUT = 4
 def _ask(app, family_id, user_id, level):
     try:
         r = requests.get(f"{app['internal_url']}/api/hub/families/{family_id}/summary", timeout=TIMEOUT, allow_redirects=False,
-                         params={'user': user_id, 'level': level, 'from': 'wehub'},
-                         headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'weHub'})
+                         params={'user': user_id, 'level': level, 'from': 'wombat'},
+                         headers={'Authorization': f"Bearer {app['key']}", 'User-Agent': 'Wombat'})
         return r.json() if r.status_code == 200 else None
     except (requests.RequestException, ValueError):
         return None

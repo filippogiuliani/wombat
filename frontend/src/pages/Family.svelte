@@ -121,7 +121,7 @@
               {#if admin}
                 <button class="chip" class:on={!!m.access[a.id]} onclick={() => toggleApp(m, a.id)} aria-pressed={!!m.access[a.id]}
                         title={m.access[a.id] ? t('apps.revoke', { app: a.name }) : t('apps.grant', { app: a.name })}>{a.name}</button>
-                {#if m.access[a.id] && a.id === 'patrack'}
+                {#if m.access[a.id] && a.id === 'pelican'}
                   <select class="level" value={m.access[a.id]} onchange={(e) => setLevel(m, a.id, e.currentTarget.value)} aria-label={t('access.level')}>
                     <option value="full">{t('access.full')}</option><option value="limited">{t('access.limited')}</option>
                   </select>

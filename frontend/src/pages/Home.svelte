@@ -8,7 +8,7 @@
   import LinkIcon from '../components/LinkIcon.svelte';
   const apps = $derived(app.me.apps ?? []);
   const links = $derived(app.me.shortcuts ?? []);
-  // Is each service up? Asked to weHub (it opens the addresses), again every minute while the page is open
+  // Is each service up? Asked to Wombat (it opens the addresses), again every minute while the page is open
   let status = $state({});
   $effect(() => {
     if (!links.some((l) => l.monitor)) return;
@@ -17,7 +17,7 @@
     const timer = setInterval(load, 60000);
     return () => clearInterval(timer);
   });
-  // Widgets: a few numbers from each service (read by weHub, at most once a minute)
+  // Widgets: a few numbers from each service (read by Wombat, at most once a minute)
   let widgetData = $state({});
   $effect(() => {
     if (!links.some((l) => l.has_widget)) return;
@@ -28,7 +28,7 @@
   });
   const lineLabel = (x) => x.label ?? t('widget.' + x.key);
   const lineValue = (x) => x.value_key ? t('widget.' + x.value_key, x.params) : x.value;
-  // A short summary from each app (what is coming up, today's meals, documents to fix): asked to weHub, which asks the apps
+  // A short summary from each app (what is coming up, today's meals, documents to fix): asked to Wombat, which asks the apps
   let summary = $state(null); // { apps: { id: data | null } }
   $effect(() => {
     app.me.family?.id;
@@ -83,7 +83,7 @@
           {#if !summary}<p class="small muted">…</p>
           {:else if summary.apps[a.id] === undefined}
           {:else if !sm}<p class="small muted">{t('sum.no_answer', { app: a.name })}</p>
-          {:else if a.id === 'dotrack'}
+          {:else if a.id === 'kooka'}
             <p class="counts small">
               {#if sm.overdue}<span class="late">{t('sum.n_overdue', { n: sm.overdue })}</span>{/if}
               <span>{t('sum.n_today', { n: sm.today })}</span><span>{t('sum.n_week', { n: sm.week })}</span>
@@ -93,12 +93,12 @@
                 <span class="small" class:late={it.due_date < today}>{when(it.due_date, it.due_time)}</span>
                 {#if it.who}<span class="small muted who" class:mine={it.mine}>{it.who}</span>{/if}</a>
             {:else}<p class="small muted">{t('sum.nothing_due')}</p>{/each}
-          {:else if a.id === 'eatrack'}
+          {:else if a.id === 'wallaby'}
             {#each sm.children as c (c.name)}
               <p class="small"><b>{c.name}</b> · {c.meals_today.length ? c.meals_today.map((m) => t('meal.' + m)).join(', ') : t('sum.no_meals')}</p>
             {:else}<p class="small muted">{t('sum.no_children')}</p>{/each}
             {#if sm.jars_soon}<p class="small late">{t('sum.jars_soon', { n: sm.jars_soon })}</p>{/if}
-          {:else if a.id === 'patrack'}
+          {:else if a.id === 'pelican'}
             <p class="counts small">
               {#if sm.to_fix}<span class="late">{t('sum.to_fix', { n: sm.to_fix })}</span>{/if}
               {#if sm.errors}<span class="late">{t('sum.import_errors', { n: sm.errors })}</span>{/if}

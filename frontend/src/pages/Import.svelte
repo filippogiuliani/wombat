@@ -1,5 +1,5 @@
 <script>
-  // Bring into weHub the members, people and children the apps already have. Nothing is deleted in the apps:
+  // Bring into Wombat the members, people and children the apps already have. Nothing is deleted in the apps:
   // each one then recognises its own family and people (and keeps all their data).
   import { get, post } from '../lib/api.js';
   import { showError, toast } from '../lib/store.svelte.js';

@@ -1,29 +1,29 @@
-"""The apps connected to weHub, from the environment:
+"""The apps connected to Wombat, from the environment:
 
-  WEHUB_APPS=dotrack,eatrack,patrack
-  WEHUB_APP_DOTRACK_URL=https://dotrack.example.com      address people open (links on the home page)
-  WEHUB_APP_DOTRACK_INTERNAL_URL=http://dotrack:3001      optional: how weHub reaches it (import), default the URL
-  WEHUB_APP_DOTRACK_KEY=…                                 shared secret, the same as DOTRACK_HUB_KEY in that app
-  WEHUB_APP_DOTRACK_NAME / _DESCRIPTION                   optional: shown on the home page
+  WOMBAT_APPS=kooka,wallaby,pelican
+  WOMBAT_APP_KOOKA_URL=https://kooka.example.com      address people open (links on the home page)
+  WOMBAT_APP_KOOKA_INTERNAL_URL=http://kooka:3001      optional: how Wombat reaches it (import), default the URL
+  WOMBAT_APP_KOOKA_KEY=…                                 shared secret, the same as KOOKA_HUB_KEY in that app
+  WOMBAT_APP_KOOKA_NAME / _DESCRIPTION                   optional: shown on the home page
 
-`python manage.py new-key` makes a key. The key lets the app ask weHub who a person is and what their family looks
-like; weHub uses it to read the app's family data during the import."""
+`python manage.py new-key` makes a key. The key lets the app ask Wombat who a person is and what their family looks
+like; Wombat uses it to read the app's family data during the import."""
 import hmac
 import os
 
 DEFAULTS = {
-    'dotrack': ('doTrack', 'Cose da fare, scadenze, appuntamenti, spesa', 'To-dos, deadlines, appointments, shopping'),
-    'eatrack': ('eaTrack', 'Svezzamento: pasti, dispensa, menu', 'Weaning: meals, pantry, menu'),
-    'patrack': ('paTrack', 'Archivio dei documenti di famiglia', 'Family document archive'),
+    'kooka': ('Kooka', 'Cose da fare, scadenze, appuntamenti, spesa', 'To-dos, deadlines, appointments, shopping'),
+    'wallaby': ('Wallaby', 'Svezzamento: pasti, dispensa, menu', 'Weaning: meals, pantry, menu'),
+    'pelican': ('Pelican', 'Archivio dei documenti di famiglia', 'Family document archive'),
 }
 
 
 def _env(app_id, key, default=''):
-    return os.environ.get(f'WEHUB_APP_{app_id.upper()}_{key}', default).strip()
+    return os.environ.get(f'WOMBAT_APP_{app_id.upper()}_{key}', default).strip()
 
 
 def ids():
-    return [a.strip().lower() for a in os.environ.get('WEHUB_APPS', '').split(',') if a.strip()]
+    return [a.strip().lower() for a in os.environ.get('WOMBAT_APPS', '').split(',') if a.strip()]
 
 
 def get(app_id):

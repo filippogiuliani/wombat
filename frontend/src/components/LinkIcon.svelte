@@ -1,6 +1,6 @@
 <script>
-  // The icon of a link: one of weHub's line icons, an image (dashboard-icons, an address) or a single-colour SVG
-  // (mdi-…, si-…) drawn in the current colour. Images come from weHub itself (/api/icons/…), never from elsewhere.
+  // The icon of a link: one of Wombat's line icons, an image (dashboard-icons, an address) or a single-colour SVG
+  // (mdi-…, si-…) drawn in the current colour. Images come from Wombat itself (/api/icons/…), never from elsewhere.
   import Icon from './Icon.svelte';
   let { link, size = 20 } = $props();
   let failed = $state(false);

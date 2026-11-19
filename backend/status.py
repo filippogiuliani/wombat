@@ -1,4 +1,4 @@
-"""Is a link's service up? weHub opens its address, like Homepage's siteMonitor.
+"""Is a link's service up? Wombat opens its address, like Homepage's siteMonitor.
 
 Any HTTP answer below 500 counts as up: a sign-in page, a redirect to Pocket ID or a 401 still mean the service is
 there. 5xx (e.g. the reverse proxy's 502 when the container is stopped), a timeout or no connection mean down.
@@ -23,10 +23,10 @@ _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='status')
 def _check(url):
     start = time.monotonic()
     try:
-        r = requests.head(url, timeout=TIMEOUT, allow_redirects=False, verify=False, headers={'User-Agent': 'weHub status'})
+        r = requests.head(url, timeout=TIMEOUT, allow_redirects=False, verify=False, headers={'User-Agent': 'Wombat status'})
         if r.status_code in (405, 501):  # HEAD not supported: ask with GET (body not read)
             r = requests.get(url, timeout=TIMEOUT, allow_redirects=False, verify=False, stream=True,
-                             headers={'User-Agent': 'weHub status'})
+                             headers={'User-Agent': 'Wombat status'})
             r.close()
         ms = round((time.monotonic() - start) * 1000)
         return {'up': r.status_code < 500, 'code': r.status_code, 'ms': ms}

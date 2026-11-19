@@ -1,6 +1,6 @@
 """Server administration commands.
 
-  python manage.py new-key        a random key for an app (put it in WEHUB_APP_<APP>_KEY and in the app's *_HUB_KEY)
+  python manage.py new-key        a random key for an app (put it in WOMBAT_APP_<APP>_KEY and in the app's *_HUB_KEY)
   python manage.py backup         database backup now
   python manage.py backups        list backups
   python manage.py users          users and families

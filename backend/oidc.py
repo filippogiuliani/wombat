@@ -1,11 +1,11 @@
 """Sign-in with external OpenID Connect providers (Google or any OIDC provider).
 
 Configuration (environment variables):
-  WEHUB_OIDC=google,company                  enabled providers
-  WEHUB_OIDC_GOOGLE_ID / _SECRET             client credentials
-  WEHUB_OIDC_COMPANY_ISSUER                  issuer URL (Google already has a default)
-  WEHUB_OIDC_COMPANY_NAME                    name shown on the button (optional)
-Callback URL to register with the provider:  <WEHUB_URL>/api/oidc/<provider>/callback
+  WOMBAT_OIDC=google,company                  enabled providers
+  WOMBAT_OIDC_GOOGLE_ID / _SECRET             client credentials
+  WOMBAT_OIDC_COMPANY_ISSUER                  issuer URL (Google already has a default)
+  WOMBAT_OIDC_COMPANY_NAME                    name shown on the button (optional)
+Callback URL to register with the provider:  <WOMBAT_URL>/api/oidc/<provider>/callback
 """
 import os
 from urllib.parse import quote
@@ -29,8 +29,8 @@ PROVIDERS = {}  # id -> display name
 
 def configure(app):
     oauth.init_app(app)
-    for pid in [p.strip().lower() for p in os.environ.get('WEHUB_OIDC', '').split(',') if p.strip()]:
-        env = lambda k: os.environ.get(f'WEHUB_OIDC_{pid.upper()}_{k}', '')
+    for pid in [p.strip().lower() for p in os.environ.get('WOMBAT_OIDC', '').split(',') if p.strip()]:
+        env = lambda k: os.environ.get(f'WOMBAT_OIDC_{pid.upper()}_{k}', '')
         issuer = (env('ISSUER') or DEFAULTS.get(pid, {}).get('issuer', '')).rstrip('/')
         if not (env('ID') and env('SECRET') and issuer):
             print(f'[oidc] provider "{pid}" ignored: ID, SECRET or ISSUER missing', flush=True)
@@ -122,7 +122,7 @@ def callback(pid):
 
 
 def _safe_next(value):
-    """Only a page of weHub itself (e.g. "apps"), never another site."""
+    """Only a page of Wombat itself (e.g. "apps"), never another site."""
     v = str(value or '')
     return v if v and all(c.isalnum() or c in '/-_' for c in v) else ''
 

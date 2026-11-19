@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build the four images on the Docker host (the stack uses them as local images).
-#   SRC=/path/to/sources ./build-images.sh     (default: the folders next to wehub/)
+#   SRC=/path/to/sources ./build-images.sh     (default: the folders next to wombat/)
 # After building, redeploy the stack (Portainer: Stacks → family → Update) to use the new images.
 set -e
 SRC="${SRC:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -12,8 +12,8 @@ build() { # image folder
   echo "== $1 ($SRC/$2)"
   docker build -t "$1:latest" "$SRC/$2"
 }
-build wehub wehub
-build dotrack "${DOTRACK_DIR:-dotrack}"
-build eatrack "${EATRACK_DIR:-eatrack}"
-build patrack "${PATRACK_DIR:-patrack}"
-echo "Done. Images: wehub, dotrack, eatrack, patrack (tag latest)."
+build wombat wombat
+build kooka "${KOOKA_DIR:-kooka}"
+build wallaby "${WALLABY_DIR:-wallaby}"
+build pelican "${PELICAN_DIR:-pelican}"
+echo "Done. Images: wombat, kooka, wallaby, pelican (tag latest)."

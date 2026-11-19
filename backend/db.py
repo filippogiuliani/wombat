@@ -1,19 +1,22 @@
-"""SQLite database: connection and schema. weHub is where the family is defined: who is in it, who the people
+"""SQLite database: connection and schema. Wombat is where the family is defined: who is in it, who the people
 without an account are (kids, grandparents), and who may use which app."""
 import os
 import sqlite3
 import sys
 from contextlib import contextmanager
 
-DATA_DIR = os.environ.get('WEHUB_DATA', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
-DB_PATH = os.path.join(DATA_DIR, 'wehub.db')
+from famkit import legacy   # first: variables with the old names (WEHUB_*) still work for a while
+
+DATA_DIR = os.environ.get('WOMBAT_DATA', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
+DB_PATH = os.path.join(DATA_DIR, 'wombat.db')
+legacy.move_file(os.path.join(DATA_DIR, 'wehub.db'), DB_PATH)   # it was weHub until 2026-11
 
 SCHEMA_VERSION = 4
 ROLES = ['admin', 'member']
 PERSON_KINDS = ['adult', 'child']
 # full = everything the app offers; limited = only what is about some people (used by apps that support it)
 ACCESS_LEVELS = ['full', 'limited']
-# weHub's own icons for links (drawn by the interface); links can also use Homepage-style icons, see icons.py
+# Wombat's own icons for links (drawn by the interface); links can also use Homepage-style icons, see icons.py
 SHORTCUT_ICONS = ['link', 'lock', 'home', 'photo', 'film', 'music', 'server', 'chart', 'mail', 'calendar', 'book', 'cloud', 'tool']
 
 SCHEMA = '''
@@ -80,7 +83,7 @@ CREATE TABLE IF NOT EXISTS access (
     level TEXT NOT NULL DEFAULT 'full',
     PRIMARY KEY (family_id, user_id, app)
 );
--- What a family or a person was called inside an app before weHub (from the import): the app adopts that row
+-- What a family or a person was called inside an app before Wombat (from the import): the app adopts that row
 CREATE TABLE IF NOT EXISTS links (
     kind TEXT NOT NULL,                -- family | person
     hub_id INTEGER NOT NULL,
@@ -177,8 +180,14 @@ def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = connect()
     try:
+        legacy.rename_schema(conn)
         conn.executescript(SCHEMA)
         _migrate(conn)
+        # the apps were doTrack, paTrack and eaTrack until 2026-11: who may use which app, and the rest, by the new ids
+        for old, new in legacy.IDS.items():
+            for table in ('access', 'links', 'app_seen'):
+                conn.execute(f'UPDATE OR IGNORE {table} SET app = ? WHERE app = ?', (new, old))
+                conn.execute(f'DELETE FROM {table} WHERE app = ?', (old,))
         conn.execute(f'PRAGMA user_version = {SCHEMA_VERSION}')
         conn.execute('PRAGMA journal_mode = WAL')
         conn.commit()
@@ -186,6 +195,6 @@ def init_db():
         conn.close()
 
 
-# The shared code (famkit: mail, backups) reads WEHUB_* variables and uses this module
+# The shared code (famkit: mail, backups) reads WOMBAT_* variables and uses this module
 import famkit  # noqa: E402
-famkit.configure('WEHUB', 'weHub', sys.modules[__name__])
+famkit.configure('WOMBAT', 'Wombat', sys.modules[__name__])

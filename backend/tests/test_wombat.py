@@ -1,4 +1,4 @@
-"""weHub: the family, members by email, access per app, the service API the apps use, the import."""
+"""Wombat: the family, members by email, access per app, the service API the apps use, the import."""
 import pytest
 
 import api_import
@@ -13,21 +13,21 @@ def me(c):
 def test_first_user_creates_the_family_then_sign_up_closes(client):
     c = client()
     m = sign_up(c)
-    assert m['role'] == 'admin' and [a['id'] for a in m['apps']] == ['dotrack', 'eatrack', 'patrack']
+    assert m['role'] == 'admin' and [a['id'] for a in m['apps']] == ['kooka', 'wallaby', 'pelican']
     assert ok(c.get('/api/family'))['people'][0]['name'] == 'Fil'
     r = client().post('/api/signup', json={'name': 'X', 'email': 'x@example.com', 'password': 'secret123', 'consent': True})
-    assert r.status_code == 403 and 'weHub' in r.get_json()['error']
+    assert r.status_code == 403 and 'Wombat' in r.get_json()['error']
     assert ok(client().get('/api/me'))['signup_open'] is False
 
 
 def test_members_people_and_access(admin, client):
-    f = ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'Sara@Example.com', 'apps': ['dotrack', 'patrack']}), 201)
+    f = ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'Sara@Example.com', 'apps': ['kooka', 'pelican']}), 201)
     sara = next(m for m in f['members'] if m['email'] == 'sara@example.com')
-    assert sara['access'] == {'dotrack': 'full', 'patrack': 'full'} and not sara['signed_in']
+    assert sara['access'] == {'kooka': 'full', 'pelican': 'full'} and not sara['signed_in']
     assert admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com'}).status_code == 409
-    f = ok(admin.put(f"/api/family/members/{sara['id']}", json={'apps': {'patrack': 'limited', 'eatrack': 'full'}, 'name': 'Sara R.'}))
+    f = ok(admin.put(f"/api/family/members/{sara['id']}", json={'apps': {'pelican': 'limited', 'wallaby': 'full'}, 'name': 'Sara R.'}))
     sara = next(m for m in f['members'] if m['id'] == sara['id'])
-    assert sara['access'] == {'patrack': 'limited', 'eatrack': 'full'} and sara['name'] == 'Sara R.'
+    assert sara['access'] == {'pelican': 'limited', 'wallaby': 'full'} and sara['name'] == 'Sara R.'
     f = ok(admin.post('/api/family/people', json={'name': 'Luca', 'birth_date': '2025-01-10', 'kind': 'child'}), 201)
     assert any(p['name'] == 'Luca' and p['kind'] == 'child' for p in f['people'])
     assert admin.post('/api/family/people', json={'name': 'luca'}).status_code == 409
@@ -75,64 +75,64 @@ def test_service_needs_a_key(client, admin):
 
 
 def test_whoami_and_snapshots(admin, client):
-    ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com', 'apps': ['patrack']}), 201)
+    ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com', 'apps': ['pelican']}), 201)
     ok(admin.post('/api/family/people', json={'name': 'Luca', 'kind': 'child', 'birth_date': '2025-01-10'}), 201)
     c = client()
     # Unknown person
-    assert ok(service(c, 'dotrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 's1', 'email': 'nobody@x.it',
+    assert ok(service(c, 'kooka', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 's1', 'email': 'nobody@x.it',
                                                               'email_verified': True})) == {'known': False}
     # First time: matched by verified email, then by issuer + subject
-    w = ok(service(c, 'dotrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'fil-sub', 'email': 'fil@example.com',
+    w = ok(service(c, 'kooka', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'fil-sub', 'email': 'fil@example.com',
                                                            'email_verified': True}))
     assert w['known'] and w['user']['name'] == 'Fil' and len(w['families']) == 1
     snap = w['families'][0]
-    assert [m['email'] for m in snap['members']] == ['fil@example.com']   # Sara has no doTrack access
+    assert [m['email'] for m in snap['members']] == ['fil@example.com']   # Sara has no Kooka access
     assert {p['name']: p['kind'] for p in snap['people']} == {'Fil': 'adult', 'Sara': 'adult', 'Luca': 'child'}
-    w2 = ok(service(c, 'dotrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'fil-sub', 'email': 'other@x.it'}))
+    w2 = ok(service(c, 'kooka', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'fil-sub', 'email': 'other@x.it'}))
     assert w2['user']['hub_id'] == w['user']['hub_id']
     # An unverified email is not enough
-    assert ok(service(c, 'dotrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'other', 'email': 'sara@example.com',
+    assert ok(service(c, 'kooka', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'other', 'email': 'sara@example.com',
                                                               'email_verified': False}))['known'] is False
-    # Sara may use paTrack only
-    w = ok(service(c, 'dotrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'sara', 'email': 'sara@example.com',
+    # Sara may use Pelican only
+    w = ok(service(c, 'kooka', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'sara', 'email': 'sara@example.com',
                                                            'email_verified': True}))
     assert w['known'] and w['families'] == []
-    w = ok(service(c, 'patrack', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'sara'}))
+    w = ok(service(c, 'pelican', 'POST', '/whoami', json={'issuer': 'https://id', 'subject': 'sara'}))
     assert len(w['families'][0]['members']) == 2
     # Version check: unchanged until something changes
     fid, v = snap['hub_id'], snap['version']
-    assert ok(service(c, 'dotrack', 'GET', f'/families/{fid}?version={v}'))['unchanged']
+    assert ok(service(c, 'kooka', 'GET', f'/families/{fid}?version={v}'))['unchanged']
     ok(admin.put('/api/family', json={'name': 'Casa Rossi'}))
-    assert ok(service(c, 'dotrack', 'GET', f'/families/{fid}?version={v}'))['name'] == 'Casa Rossi'
-    assert service(c, 'dotrack', 'GET', '/families/999').status_code == 404
-    assert set(ok(admin.get('/api/family'))['seen']) == {'dotrack', 'patrack'}
+    assert ok(service(c, 'kooka', 'GET', f'/families/{fid}?version={v}'))['name'] == 'Casa Rossi'
+    assert service(c, 'kooka', 'GET', '/families/999').status_code == 404
+    assert set(ok(admin.get('/api/family'))['seen']) == {'kooka', 'pelican'}
 
 
 EXPORTS = {
-    'dotrack': [{'local_id': 4, 'name': 'Famiglia di Fil', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'},
+    'kooka': [{'local_id': 4, 'name': 'Famiglia di Fil', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'},
                                                                      {'email': 'sara@example.com', 'name': 'Sara', 'role': 'member'}],
                  'people': [{'local_id': 7, 'name': 'Luca', 'kind': 'adult'}, {'local_id': 8, 'name': 'Nonna Anna', 'kind': 'adult'}]},
                 {'local_id': 9, 'name': 'Altra', 'members': [{'email': 'x@x.it', 'name': 'X', 'role': 'admin'}], 'people': []}],
-    'eatrack': [{'local_id': 1, 'name': 'Famiglia', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'}],
+    'wallaby': [{'local_id': 1, 'name': 'Famiglia', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'}],
                  'people': [{'local_id': 3, 'name': 'luca', 'kind': 'child', 'birth_date': '2025-01-10'}]}],
 }
 
 
 def test_import(admin, monkeypatch):
     def fake(app):
-        if app['id'] == 'patrack':
+        if app['id'] == 'pelican':
             raise RuntimeError('not reachable (ConnectionError)')
         return EXPORTS[app['id']]
     monkeypatch.setattr(api_import, 'fetch_export', fake)
     p = ok(admin.get('/api/import/preview'))
     by = {a['id']: a for a in p['apps']}
-    assert by['dotrack']['selected'] == 4 and by['eatrack']['selected'] == 1 and not by['patrack']['ok']
+    assert by['kooka']['selected'] == 4 and by['wallaby']['selected'] == 1 and not by['pelican']['ok']
     assert [m['email'] for m in p['members'] if not m['exists']] == ['sara@example.com']
     groups = {g['key']: g for g in p['groups']}
     assert set(groups) == {'luca', 'nonna anna'}
     luca = groups['luca']
     assert luca['kind'] == 'child' and luca['birth_date'] == '2025-01-10' and len(luca['sources']) == 2
-    r = ok(admin.post('/api/import/apply', json={'selected': {'dotrack': 4, 'eatrack': 1},
+    r = ok(admin.post('/api/import/apply', json={'selected': {'kooka': 4, 'wallaby': 1},
                                                  'members': [m for m in p['members'] if not m['exists']],
                                                  'groups': p['groups']}))
     assert r == {'families': 2, 'members': 1, 'people': 2, 'linked': 3, 'merges': {}}
@@ -141,14 +141,14 @@ def test_import(admin, monkeypatch):
     # The apps now get their own ids back
     from flask import Flask  # noqa
     import app as appmod  # noqa
-    w = ok(service(admin, 'eatrack', 'POST', '/whoami', json={'issuer': 'i', 'subject': 's', 'email': 'fil@example.com',
+    w = ok(service(admin, 'wallaby', 'POST', '/whoami', json={'issuer': 'i', 'subject': 's', 'email': 'fil@example.com',
                                                               'email_verified': True}))
     snap = w['families'][0]
     assert snap['local_id'] == 1 and next(x for x in snap['people'] if x['name'] == 'Luca')['local_id'] == 3
     # Importing again: everything already there, nothing duplicated
     p = ok(admin.get('/api/import/preview'))
     assert all(m['exists'] for m in p['members']) and all(g['target'] for g in p['groups'])
-    r = ok(admin.post('/api/import/apply', json={'selected': {'dotrack': 4}, 'members': [], 'groups': p['groups']}))
+    r = ok(admin.post('/api/import/apply', json={'selected': {'kooka': 4}, 'members': [], 'groups': p['groups']}))
     assert r['people'] == 0
     assert len(ok(admin.get('/api/family'))['people']) == 4
 
@@ -178,7 +178,7 @@ def _session_for(client, email):
 
 
 def test_shortcuts_per_person(admin, client):
-    f = ok(admin.post('/api/family/members', json={'name': 'Tata', 'email': 'tata@example.com', 'apps': ['patrack']}), 201)
+    f = ok(admin.post('/api/family/members', json={'name': 'Tata', 'email': 'tata@example.com', 'apps': ['pelican']}), 201)
     tata = next(m['id'] for m in f['members'] if m['email'] == 'tata@example.com')
     me_id = me(admin)['user']['id']
     ok(admin.post('/api/family/shortcuts', json={'name': 'Vaultwarden', 'url': 'vault.example.com', 'icon': 'lock',
@@ -315,32 +315,32 @@ def test_shortcut_icons(admin, monkeypatch):
 
 
 def test_import_merges_a_family_made_separately(admin, monkeypatch):
-    """Sara had made her own doTrack family: it is proposed for merging, and merged on request."""
+    """Sara had made her own Kooka family: it is proposed for merging, and merged on request."""
     exports = {
-        'dotrack': [{'local_id': 4, 'name': 'Famiglia di Fil', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'}],
+        'kooka': [{'local_id': 4, 'name': 'Famiglia di Fil', 'members': [{'email': 'fil@example.com', 'name': 'Fil', 'role': 'admin'}],
                      'people': [{'local_id': 7, 'name': 'Luca', 'kind': 'adult'}]},
                     {'local_id': 10, 'name': 'Famiglia di Sara', 'members': [{'email': 'sara@example.com', 'name': 'Sara', 'role': 'admin'}],
                      'people': [{'local_id': 11, 'name': 'luca', 'kind': 'adult'}, {'local_id': 12, 'name': 'Nonna', 'kind': 'adult'}]},
                     {'local_id': 20, 'name': 'Estranei', 'members': [{'email': 'x@x.it', 'name': 'X', 'role': 'admin'}], 'people': []}],
-        'eatrack': [], 'patrack': [],
+        'wallaby': [], 'pelican': [],
     }
     monkeypatch.setattr(api_import, 'fetch_export', lambda app: exports[app['id']])
     ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com'}), 201)
     p = ok(admin.get('/api/import/preview'))
-    do = next(a for a in p['apps'] if a['id'] == 'dotrack')
+    do = next(a for a in p['apps'] if a['id'] == 'kooka')
     assert do['selected'] == 4 and do['merge_candidates'] == [10] and do['merge'] == []   # strangers are never proposed
     assert {g['key'] for g in p['groups']} == {'luca'}
     # Choosing to merge: Sara's people join the proposal
-    p = ok(admin.get('/api/import/preview?merge_dotrack=10,20'))
-    do = next(a for a in p['apps'] if a['id'] == 'dotrack')
+    p = ok(admin.get('/api/import/preview?merge_kooka=10,20'))
+    do = next(a for a in p['apps'] if a['id'] == 'kooka')
     assert do['merge'] == [10]
     groups = {g['key']: g for g in p['groups']}
     assert set(groups) == {'luca', 'nonna'} and len(groups['luca']['sources']) == 2
     calls = []
     monkeypatch.setattr(api_import, 'merge_in_app', lambda app, into, fams: calls.append((app['id'], into, fams)) or {'items': 3, 'families': 1})
-    r = ok(admin.post('/api/import/apply', json={'selected': {'dotrack': 4}, 'merge': {'dotrack': [10]}, 'members': [],
+    r = ok(admin.post('/api/import/apply', json={'selected': {'kooka': 4}, 'merge': {'kooka': [10]}, 'members': [],
                                                  'groups': p['groups']}))
-    assert calls == [('dotrack', 4, [10])] and r['merges'] == {'dotrack': {'items': 3, 'families': 1}}
+    assert calls == [('kooka', 4, [10])] and r['merges'] == {'kooka': {'items': 3, 'families': 1}}
 
 
 def test_merge_in_app_reports_errors(monkeypatch):
@@ -351,7 +351,7 @@ def test_merge_in_app_reports_errors(monkeypatch):
             self.status_code, self._data = code, data
         def json(self):
             return self._data
-    app = {'internal_url': 'http://dotrack.test', 'key': KEYS['dotrack']}
+    app = {'internal_url': 'http://kooka.test', 'key': KEYS['kooka']}
     monkeypatch.setattr(requests, 'post', lambda *a, **k: Resp(200, {'report': {'items': 2}}))
     assert api_import.merge_in_app(app, 1, [2]) == {'items': 2}
     monkeypatch.setattr(requests, 'post', lambda *a, **k: Resp(409, {'error': 'family 2 still has rows'}))
@@ -362,7 +362,7 @@ def test_merge_in_app_reports_errors(monkeypatch):
     assert 'not reachable' in api_import.merge_in_app(app, 1, [2])['error']
 
 
-def test_eatrack_reaches_dotrack_through_wehub(admin, client, monkeypatch):
+def test_wallaby_reaches_kooka_through_wombat(admin, client, monkeypatch):
     import service
     fid, uid = me(admin)['family']['id'], me(admin)['user']['id']
     calls = []
@@ -372,19 +372,19 @@ def test_eatrack_reaches_dotrack_through_wehub(admin, client, monkeypatch):
         def json(self): return {'added': [{'title': 'Zucchine'}], 'skipped': []}
 
     monkeypatch.setattr(service.requests, 'request', lambda method, url, **kw: calls.append((method, url, kw)) or R())
-    r = ok(service_(client, 'eatrack', 'POST', f'/dotrack/families/{fid}/lists/3/items?user={uid}', json={'items': ['Zucchine']}), 201)
+    r = ok(service_(client, 'wallaby', 'POST', f'/kooka/families/{fid}/lists/3/items?user={uid}', json={'items': ['Zucchine']}), 201)
     assert r['added'] == [{'title': 'Zucchine'}]
     method, url, kw = calls[0]
-    assert url == f'http://dotrack.test/api/hub/families/{fid}/lists/3/items'
-    assert kw['params'] == {'user': uid, 'level': 'full', 'from': 'eatrack'}
-    assert kw['headers']['Authorization'] == 'Bearer ' + KEYS['dotrack']
-    # Someone outside the family, a wrong key, doTrack asking itself: refused
-    assert service_(client, 'eatrack', 'GET', f'/dotrack/families/{fid}/lists?user=999').status_code == 403
-    assert service_(client, 'dotrack', 'GET', f'/dotrack/families/{fid}/lists?user={uid}').status_code == 403
-    assert client().get(f'/api/service/dotrack/families/{fid}/lists?user={uid}').status_code == 401
-    # Without access to eaTrack, no relay for eaTrack
-    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['dotrack']}))
-    assert service_(client, 'eatrack', 'GET', f'/dotrack/families/{fid}/lists?user={uid}').status_code == 403
+    assert url == f'http://kooka.test/api/hub/families/{fid}/lists/3/items'
+    assert kw['params'] == {'user': uid, 'level': 'full', 'from': 'wallaby'}
+    assert kw['headers']['Authorization'] == 'Bearer ' + KEYS['kooka']
+    # Someone outside the family, a wrong key, Kooka asking itself: refused
+    assert service_(client, 'wallaby', 'GET', f'/kooka/families/{fid}/lists?user=999').status_code == 403
+    assert service_(client, 'kooka', 'GET', f'/kooka/families/{fid}/lists?user={uid}').status_code == 403
+    assert client().get(f'/api/service/kooka/families/{fid}/lists?user={uid}').status_code == 401
+    # Without access to Wallaby, no relay for Wallaby
+    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['kooka']}))
+    assert service_(client, 'wallaby', 'GET', f'/kooka/families/{fid}/lists?user={uid}').status_code == 403
     assert len(calls) == 1
 
 
@@ -399,19 +399,19 @@ def test_relay_only_what_is_listed(admin, client, monkeypatch):
 
     monkeypatch.setattr(service.requests, 'request', lambda method, url, **kw: calls.append((method, url, kw)) or R())
     # The general address, with the caller's own query parameters passed on (but not user/level/from)
-    assert ok(service_(client, 'eatrack', 'GET', f'/apps/dotrack/families/{fid}/lists?user={uid}&kind=x&level=full&from=patrack'))
-    assert calls[-1][2]['params'] == {'kind': 'x', 'user': uid, 'level': 'full', 'from': 'eatrack'}
+    assert ok(service_(client, 'wallaby', 'GET', f'/apps/kooka/families/{fid}/lists?user={uid}&kind=x&level=full&from=pelican'))
+    assert calls[-1][2]['params'] == {'kind': 'x', 'user': uid, 'level': 'full', 'from': 'wallaby'}
     # Not in the list: another path, another method, another pair of apps
-    assert service_(client, 'eatrack', 'GET', f'/apps/dotrack/families/{fid}/items?user={uid}').status_code == 403
-    assert service_(client, 'eatrack', 'DELETE', f'/apps/dotrack/families/{fid}/lists?user={uid}').status_code == 403
-    assert service_(client, 'eatrack', 'GET', f'/apps/patrack/families/{fid}/lists?user={uid}').status_code == 403
-    assert service_(client, 'eatrack', 'GET', f'/apps/dotrack/families/{fid}/lists/../items?user={uid}').status_code in (403, 404)
+    assert service_(client, 'wallaby', 'GET', f'/apps/kooka/families/{fid}/items?user={uid}').status_code == 403
+    assert service_(client, 'wallaby', 'DELETE', f'/apps/kooka/families/{fid}/lists?user={uid}').status_code == 403
+    assert service_(client, 'wallaby', 'GET', f'/apps/pelican/families/{fid}/lists?user={uid}').status_code == 403
+    assert service_(client, 'wallaby', 'GET', f'/apps/kooka/families/{fid}/lists/../items?user={uid}').status_code in (403, 404)
     assert len(calls) == 1
     # The person needs the answering app too, when the rule says so
-    monkeypatch.setitem(service.ALLOWED, ('eatrack', 'patrack'), [('GET', r'/documents', True)])
-    assert ok(service_(client, 'eatrack', 'GET', f'/apps/patrack/families/{fid}/documents?user={uid}'))
-    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['eatrack']}))
-    assert service_(client, 'eatrack', 'GET', f'/apps/patrack/families/{fid}/documents?user={uid}').status_code == 403
+    monkeypatch.setitem(service.ALLOWED, ('wallaby', 'pelican'), [('GET', r'/documents', True)])
+    assert ok(service_(client, 'wallaby', 'GET', f'/apps/pelican/families/{fid}/documents?user={uid}'))
+    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['wallaby']}))
+    assert service_(client, 'wallaby', 'GET', f'/apps/pelican/families/{fid}/documents?user={uid}').status_code == 403
     assert len(calls) == 2
 
 
@@ -463,7 +463,7 @@ def test_apps_are_told_when_a_family_changes(admin, monkeypatch):
     fid = me(admin)['family']['id']
     monkeypatch.setattr(push, 'ENABLED', True)
     monkeypatch.setattr(push, 'changed', lambda family_id: push._pending.add(family_id))  # no thread: flushed below
-    ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com', 'apps': ['dotrack']}), 201)
+    ok(admin.post('/api/family/members', json={'name': 'Sara', 'email': 'sara@example.com', 'apps': ['kooka']}), 201)
     calls = []
 
     class R:
@@ -471,8 +471,8 @@ def test_apps_are_told_when_a_family_changes(admin, monkeypatch):
 
     monkeypatch.setattr(rq, 'post', lambda url, **kw: calls.append((url, kw)) or R())
     told = push.flush()
-    assert told == {'dotrack': [fid], 'eatrack': [fid], 'patrack': [fid]}
-    assert {u for u, _ in calls} == {f'http://{a}.test/api/hub/changed' for a in ('dotrack', 'eatrack', 'patrack')}
+    assert told == {'kooka': [fid], 'wallaby': [fid], 'pelican': [fid]}
+    assert {u for u, _ in calls} == {f'http://{a}.test/api/hub/changed' for a in ('kooka', 'wallaby', 'pelican')}
     assert all(kw['json'] == {'family': fid} for _, kw in calls)
     assert {kw['headers']['Authorization'] for _, kw in calls} == {'Bearer ' + k for k in KEYS.values()}
     assert push.flush() == {}   # nothing pending any more
@@ -494,13 +494,13 @@ def test_only_documents_between_apps_may_be_big(admin, client, monkeypatch):
         status_code = 201
         def json(self): return {'id': 5, 'url': 'https://pa/#/doc/5'}
     monkeypatch.setattr(service.requests, 'request', lambda method, url, **kw: R())
-    r = service_(client, 'dotrack', 'POST', f'/apps/patrack/families/{fid}/documents?user={uid}', json=big)
+    r = service_(client, 'kooka', 'POST', f'/apps/pelican/families/{fid}/documents?user={uid}', json=big)
     assert r.status_code == 201
     # Listed calls of phase 3, and nothing else between those apps
-    assert service_(client, 'patrack', 'PUT', f'/apps/dotrack/families/{fid}/deadlines/patrack-3?user={uid}', json={}).status_code == 201
-    assert service_(client, 'patrack', 'PUT', f'/apps/dotrack/families/{fid}/deadlines/other-3?user={uid}', json={}).status_code == 403
-    assert service_(client, 'eatrack', 'GET', f'/apps/patrack/families/{fid}/plans?user={uid}&child=4').status_code == 201
-    assert service_(client, 'eatrack', 'GET', f'/apps/patrack/families/{fid}/documents?user={uid}').status_code == 403
+    assert service_(client, 'pelican', 'PUT', f'/apps/kooka/families/{fid}/deadlines/pelican-3?user={uid}', json={}).status_code == 201
+    assert service_(client, 'pelican', 'PUT', f'/apps/kooka/families/{fid}/deadlines/other-3?user={uid}', json={}).status_code == 403
+    assert service_(client, 'wallaby', 'GET', f'/apps/pelican/families/{fid}/plans?user={uid}&child=4').status_code == 201
+    assert service_(client, 'wallaby', 'GET', f'/apps/pelican/families/{fid}/documents?user={uid}').status_code == 403
 
 
 def test_home_summary_asks_only_the_apps_the_person_uses(admin, monkeypatch):
@@ -515,18 +515,18 @@ def test_home_summary_asks_only_the_apps_the_person_uses(admin, monkeypatch):
 
     def fake(url, **kw):
         asked.append((url, kw['params'], kw['headers']['Authorization']))
-        if 'eatrack' in url:
+        if 'wallaby' in url:
             raise rq.ConnectionError()
         return R(url)
     monkeypatch.setattr(summary.requests, 'get', fake)
     fid, uid = me(admin)['family']['id'], me(admin)['user']['id']
     r = ok(admin.get('/api/home/summary'))
-    assert r['apps'] == {'dotrack': {'from': 'dotrack.test'}, 'eatrack': None, 'patrack': {'from': 'patrack.test'}}
-    assert {u for u, _, _ in asked} == {f'http://{a}.test/api/hub/families/{fid}/summary' for a in ('dotrack', 'eatrack', 'patrack')}
-    assert all(p == {'user': uid, 'level': 'full', 'from': 'wehub'} for _, p, _ in asked)
-    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['patrack']}))
+    assert r['apps'] == {'kooka': {'from': 'kooka.test'}, 'wallaby': None, 'pelican': {'from': 'pelican.test'}}
+    assert {u for u, _, _ in asked} == {f'http://{a}.test/api/hub/families/{fid}/summary' for a in ('kooka', 'wallaby', 'pelican')}
+    assert all(p == {'user': uid, 'level': 'full', 'from': 'wombat'} for _, p, _ in asked)
+    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['pelican']}))
     asked.clear()
-    assert set(ok(admin.get('/api/home/summary'))['apps']) == {'patrack'} and len(asked) == 1
+    assert set(ok(admin.get('/api/home/summary'))['apps']) == {'pelican'} and len(asked) == 1
 
 
 def _fake_http(monkeypatch, routes):

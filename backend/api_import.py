@@ -1,6 +1,6 @@
-"""Import from the apps (admin): bring the members and people the apps already have into weHub, once.
+"""Import from the apps (admin): bring the members and people the apps already have into Wombat, once.
 
-GET  /api/import/preview[?dotrack=<local family id>&merge_dotrack=<ids>&…]  reads each app's families and proposes
+GET  /api/import/preview[?kooka=<local family id>&merge_kooka=<ids>&…]  reads each app's families and proposes
                                                        how to merge them
 POST /api/import/apply                                 creates members and people and remembers which family/person
                                                        of each app they were, so each app adopts its existing rows;
@@ -37,13 +37,13 @@ def fetch_export(app):
         raise RuntimeError('address or key not configured')
     try:
         r = requests.get(app['internal_url'] + '/api/hub/export', timeout=TIMEOUT, allow_redirects=False,
-                         headers={'Authorization': 'Bearer ' + app['key'], 'User-Agent': 'weHub'})
+                         headers={'Authorization': 'Bearer ' + app['key'], 'User-Agent': 'Wombat'})
     except requests.RequestException as e:
         raise RuntimeError(f'not reachable ({type(e).__name__})')
     if r.status_code == 401:
         raise RuntimeError('the key does not match')
     if r.status_code == 404:
-        raise RuntimeError('this version of the app has no weHub support')
+        raise RuntimeError('this version of the app has no Wombat support')
     if r.status_code != 200:
         raise RuntimeError(f'error {r.status_code}')
     return r.json().get('families', [])
@@ -216,7 +216,7 @@ def merge_in_app(app, into, families):
     """Ask the app to move the data of `families` into `into`. Returns its report or {error}."""
     try:
         r = requests.post(app['internal_url'] + '/api/hub/merge', json={'into': into, 'families': families}, timeout=120,
-                          allow_redirects=False, headers={'Authorization': 'Bearer ' + app['key'], 'User-Agent': 'weHub'})
+                          allow_redirects=False, headers={'Authorization': 'Bearer ' + app['key'], 'User-Agent': 'Wombat'})
     except requests.RequestException as e:
         return {'error': f'not reachable ({type(e).__name__})'}
     try:

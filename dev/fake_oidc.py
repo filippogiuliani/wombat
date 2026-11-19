@@ -1,10 +1,10 @@
-"""A tiny OpenID Connect provider FOR DEVELOPMENT ONLY: it stands in for Pocket ID when trying weHub and the apps
+"""A tiny OpenID Connect provider FOR DEVELOPMENT ONLY: it stands in for Pocket ID when trying Wombat and the apps
 on a development machine. There are no passwords: the sign-in page lists the people in dev/users.json (or the file in
 FAKE_OIDC_USERS) and you click one. Never expose it to the internet.
 
   python dev/fake_oidc.py            # http://127.0.0.1:3009 only (FAKE_OIDC_HOST to change), issuer from FAKE_OIDC_ISSUER
 
-Configure weHub and each app with provider "pocketid", issuer = this address, any client id / secret."""
+Configure Wombat and each app with provider "pocketid", issuer = this address, any client id / secret."""
 import json
 import os
 import secrets

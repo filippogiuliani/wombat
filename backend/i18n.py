@@ -77,7 +77,7 @@ IT = {
     'Invalid role': 'Ruolo non valido',
     'The family needs at least one admin': 'La famiglia deve avere almeno un amministratore',
     "You're the only member of the family": "Sei l'unico membro della famiglia",
-    'Ask the family admin to add you in weHub': "Chiedi all'amministratore della famiglia di aggiungerti in weHub",
+    'Ask the family admin to add you in Wombat': "Chiedi all'amministratore della famiglia di aggiungerti in Wombat",
     'Invalid request': 'Richiesta non valida',
     'Sign-in with a password is disabled: use one of the providers': "L'accesso con password è disattivato: usa uno dei provider",
     'Sign-up with a password is disabled: use one of the providers': 'La registrazione con password è disattivata: usa uno dei provider',
@@ -111,18 +111,18 @@ def tr(text, lang=None, **values):
 
 EMAILS = {
     'verify': {
-        'it': ('Conferma il tuo indirizzo email – weHub',
+        'it': ('Conferma il tuo indirizzo email – Wombat',
                'Ciao!\n\nConferma il tuo indirizzo email aprendo questo link:\n{link}\n\n'
-               'Il link vale 3 giorni. Se non ti sei registrato su weHub ignora questo messaggio.'),
-        'en': ('Confirm your email address – weHub',
+               'Il link vale 3 giorni. Se non ti sei registrato su Wombat ignora questo messaggio.'),
+        'en': ('Confirm your email address – Wombat',
                'Hi!\n\nConfirm your email address by opening this link:\n{link}\n\n'
-               "The link is valid for 3 days. If you didn't sign up for weHub, ignore this message."),
+               "The link is valid for 3 days. If you didn't sign up for Wombat, ignore this message."),
     },
     'reset': {
-        'it': ('Reimposta la password – weHub',
+        'it': ('Reimposta la password – Wombat',
                'Per scegliere una nuova password apri questo link (vale 2 ore):\n{link}\n\n'
                'Se non hai chiesto tu il cambio password ignora questo messaggio.'),
-        'en': ('Reset your password – weHub',
+        'en': ('Reset your password – Wombat',
                'To choose a new password open this link (valid for 2 hours):\n{link}\n\n'
                "If you didn't request a password change, ignore this message."),
     },
