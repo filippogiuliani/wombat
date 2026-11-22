@@ -131,8 +131,9 @@
     <span><b>{t('links.add_first')}</b><br /><span class="small muted">{t('links.add_first_note')}</span></span>
   </a>
 {/if}
+<div class="groups">
 {#each groups as gr (gr.name)}
-  <section class="group">
+  <section class="group" style:--n={gr.links.length}>
     {#if gr.name}<h3>{gr.name}</h3>{/if}
     <div class="links">
       {#each gr.links as l (l.id)}
@@ -156,6 +157,7 @@
     </div>
   </section>
 {/each}
+</div>
 
 <style>
   .head { margin-bottom: 20px; display: flex; flex-direction: column; gap: 4px; }
@@ -191,7 +193,9 @@
   .empty-links { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1.5px dashed var(--line-strong); border-radius: var(--r-md);
     text-decoration: none; color: var(--ink); }
   .empty-links:hover { border-color: var(--primary); background: var(--primary-soft); }
-  .group + .group { margin-top: 18px; }
+  /* groups that fit stand side by side (each as wide as its links), the others go on the next row */
+  .groups { display: flex; flex-wrap: wrap; gap: 18px 24px; }
+  .group { flex: 1 1 min(100%, calc(var(--n) * 272px - 12px)); min-width: 0; }
   .group h3 { margin: 0 0 8px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .links { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   .link { position: relative; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--line);
