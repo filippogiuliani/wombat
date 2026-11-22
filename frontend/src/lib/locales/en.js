@@ -162,7 +162,7 @@ export default {
   "links.no_url": "address not set",
   "links.group": "Group (optional)",
   "links.no_group": "No group",
-  "links.icon_help": "One of the icons below, or as in Homepage: a dashboard-icons name (jellyfin.png), mdi-…, si-…, sh-… or an address.",
+  "links.icon_help": "One of the icons below, or as in Homepage: quokka (or another family app), a dashboard-icons name (jellyfin.png), mdi-…, si-…, sh-… or an address.",
   "links.icon_dashboard": "Icon from dashboard-icons (github.com/homarr-labs/dashboard-icons).",
   "links.icon_mdi": "Material Design Icons, in the text colour.",
   "links.icon_si": "Simple Icons, in the text colour.",

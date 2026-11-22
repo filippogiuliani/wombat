@@ -290,6 +290,10 @@ def test_shortcut_icons(admin, monkeypatch):
     assert icons.resolve('jellyfin')[1].endswith('/png/jellyfin.png')
     assert icons.resolve('sh-immich.svg')[1].endswith('/selfhst/icons/svg/immich.svg')
     assert icons.resolve('mdi-logout')[1].endswith('/svg/logout.svg')
+    # The family apps' logos come with Wombat: nothing to download
+    links = ok(admin.post('/api/family/shortcuts', json={'name': 'Posta', 'url': 'https://x.it', 'icon': 'Quokka'}), 201)
+    assert (links[-1]['icon'], links[-1]['icon_url']) == ('quokka', '/apps/quokka.svg')
+    assert icons.fetch('quokka.svg') is None
     # Downloaded once, then served from the data folder; something that is not an image is refused
     calls = []
 

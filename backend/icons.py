@@ -1,6 +1,7 @@
 """Icons of the home-page links, written as in Homepage (gethomepage.dev):
 
   lock, home, film…           one of Wombat's own line icons (db.SHORTCUT_ICONS)
+  quokka, kooka, pelican…     the family apps' logos, shipped with Wombat (frontend/public/apps)
   jellyfin.png / jellyfin     dashboard-icons (github.com/homarr-labs/dashboard-icons), .png .svg or .webp
   sh-immich(.png)             selfh.st icons
   mdi-logout                  Material Design Icons (drawn in the text colour)
@@ -25,6 +26,7 @@ DASHBOARD = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/{ext}/{name
 SELFHST = 'https://cdn.jsdelivr.net/gh/selfhst/icons/{ext}/{name}.{ext}'
 MDI = 'https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/{name}.svg'
 SIMPLE = 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/{name}.svg'
+FAMILY = ('quokka', 'kooka', 'wallaby', 'pelican', 'wombat')  # logos in frontend/public/apps/<name>.svg
 MAX_BYTES = 1024 * 1024
 TIMEOUT = 8
 RETRY_MISSING = 24 * 3600  # an icon that could not be downloaded is tried again after a day
@@ -42,8 +44,8 @@ def _split(name):
 
 
 def resolve(spec):
-    """(kind, source): kind is 'builtin' (source = icon name), 'mono' (an SVG drawn in the text colour) or 'image';
-    None when the text is not an icon Wombat understands."""
+    """(kind, source): kind is 'builtin' (source = icon name), 'family' (an app logo Wombat ships), 'mono' (an SVG
+    drawn in the text colour) or 'image'; None when the text is not an icon Wombat understands."""
     s = str(spec or '').strip()
     if not s:
         return None
@@ -54,6 +56,8 @@ def resolve(spec):
     s = s.lower()
     if not NAME_RE.match(s):
         return None
+    if _split(s)[0] in FAMILY:
+        return 'family', _split(s)[0]
     if s.startswith('mdi-') and len(s) > 4:
         return 'mono', MDI.format(name=_split(s[4:])[0])
     if s.startswith('si-') and len(s) > 3:
@@ -83,6 +87,8 @@ def describe(spec, shortcut_id):
     r = resolve(spec) or ('builtin', 'link')
     if r[0] == 'builtin':
         return {'icon_kind': 'builtin', 'icon_url': None}
+    if r[0] == 'family':
+        return {'icon_kind': 'image', 'icon_url': f'/apps/{r[1]}.svg'}
     return {'icon_kind': r[0], 'icon_url': f'/api/icons/{shortcut_id}?v={version(spec)}'}
 
 
@@ -124,7 +130,7 @@ def _download(url):
 def fetch(spec):
     """(path, mime type) of the icon on disk, downloaded the first time; None when it cannot be had."""
     r = resolve(spec)
-    if not r or r[0] == 'builtin':
+    if not r or r[0] in ('builtin', 'family'):
         return None
     key = hashlib.sha256(r[1].encode()).hexdigest()[:32]
     d = _dir()
