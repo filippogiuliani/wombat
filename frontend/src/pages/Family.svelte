@@ -215,6 +215,12 @@
 <style>
   .head { margin-bottom: 18px; }
   .big { gap: 14px; }
+  /* a computer: the cards in two, then three columns filled from the top, not stretched across the whole screen */
+  @media (min-width: 1280px) {
+    .big { display: block; columns: 2; column-gap: 14px; }
+    .big > :global(*) { break-inside: avoid; margin-bottom: 14px; }
+  }
+  @media (min-width: 1700px) { .big { columns: 3; } }
   .ic { display: flex; align-items: center; gap: 8px; }
   .list { list-style: none; margin: 0; padding: 0; }
   .list li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }

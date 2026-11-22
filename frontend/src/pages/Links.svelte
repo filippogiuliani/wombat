@@ -28,6 +28,8 @@
 <style>
   .head { margin-bottom: 18px; }
   .big { gap: 14px; }
+  /* a computer: the list beside the family apps, not stretched across the whole screen */
+  @media (min-width: 1280px) { .big { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; } }
   .list { list-style: none; margin: 0; padding: 0; }
   .list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .list li:last-child { border: 0; }
