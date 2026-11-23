@@ -34,7 +34,7 @@ services:
       WOMBAT_OIDC_POCKETID_ID: ${WOMBAT_OIDC_ID}
       WOMBAT_OIDC_POCKETID_SECRET: ${WOMBAT_OIDC_SECRET}
       WOMBAT_OIDC_POCKETID_NAME: Pocket ID
-      WOMBAT_APPS: kooka,wallaby,pelican
+      WOMBAT_APPS: kooka,wallaby,pelican,quokka
       WOMBAT_APP_KOOKA_URL: ${KOOKA_URL}
       WOMBAT_APP_KOOKA_INTERNAL_URL: http://kooka:3001
       WOMBAT_APP_KOOKA_KEY: ${KOOKA_HUB_KEY:?set KOOKA_HUB_KEY}
@@ -44,6 +44,9 @@ services:
       WOMBAT_APP_PELICAN_URL: ${PELICAN_URL}
       WOMBAT_APP_PELICAN_INTERNAL_URL: http://pelican:3002
       WOMBAT_APP_PELICAN_KEY: ${PELICAN_HUB_KEY:?set PELICAN_HUB_KEY}
+      # Quokka (its own stack): only asks, through Wombat; the same key as QUOKKA_HUB_KEY there
+      WOMBAT_APP_QUOKKA_URL: ${QUOKKA_URL:-}
+      WOMBAT_APP_QUOKKA_KEY: ${QUOKKA_HUB_KEY:-}
       WOMBAT_SMTP_HOST: ${SMTP_HOST:-}
       WOMBAT_SMTP_PORT: ${SMTP_PORT:-587}
       WOMBAT_SMTP_USER: ${SMTP_USER:-}

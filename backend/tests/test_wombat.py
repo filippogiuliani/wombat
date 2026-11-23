@@ -704,3 +704,44 @@ def test_jellyfin_key_is_sent_the_current_way(monkeypatch):
     widgets._safe_read((1, {'type': 'jellyfin', 'url': 'http://jf:8096'}, {'api_key': ' abc123 '}))
     h = calls[0][2]['headers']
     assert 'Token="abc123"' in h['Authorization'] and h['Authorization'].startswith('MediaBrowser ') and h['X-Emby-Token'] == 'abc123'
+
+
+def test_quokka_only_asks(admin, client, monkeypatch):
+    import push
+    import service
+    monkeypatch.setenv('WOMBAT_APPS', 'kooka,wallaby,pelican,quokka')
+    monkeypatch.setenv('WOMBAT_APP_QUOKKA_URL', 'https://mail.example')
+    monkeypatch.setenv('WOMBAT_APP_QUOKKA_KEY', 'k-quokka-' + 'q' * 30)
+    monkeypatch.setitem(KEYS, 'quokka', 'k-quokka-' + 'q' * 30)
+    fid, uid = me(admin)['family']['id'], me(admin)['user']['id']
+    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['kooka', 'pelican', 'quokka']}))
+    calls = []
+
+    class R:
+        status_code = 201
+        def json(self): return {'id': 5}
+
+    monkeypatch.setattr(service.requests, 'request', lambda method, url, **kw: calls.append((method, url)) or R())
+    # Who signed in to Quokka with Pocket ID, then Kooka and Pelican on their behalf
+    who = ok(service_(client, 'quokka', 'POST', '/whoami', json={'issuer': 'https://id.example', 'subject': 's1',
+                                                                 'email': 'fil@example.com', 'email_verified': True}))
+    assert who['known'] and [f['hub_id'] for f in who['families']] == [fid]
+    ok(service_(client, 'quokka', 'POST', f'/apps/kooka/families/{fid}/reminders?user={uid}', json={'title': 'x'}), 201)
+    ok(service_(client, 'quokka', 'GET', f'/apps/kooka/families/{fid}/calendar/busy?user={uid}&start=2026-12-01'), 201)
+    ok(service_(client, 'quokka', 'POST', f'/apps/pelican/families/{fid}/imports?user={uid}', json={}), 201)
+    assert [c[1].split('/api/hub/')[1] for c in calls] == [f'families/{fid}/reminders', f'families/{fid}/calendar/busy',
+                                                          f'families/{fid}/imports']
+    assert service_(client, 'quokka', 'GET', f'/apps/kooka/families/{fid}/lists?user={uid}').status_code == 403
+    # Without Kooka for this person: no
+    ok(admin.put(f'/api/family/members/{uid}', json={'apps': ['quokka']}))
+    assert service_(client, 'quokka', 'POST', f'/apps/kooka/families/{fid}/reminders?user={uid}', json={}).status_code == 403
+    # Wombat never asks Quokka for families, changes or the home summary
+    import api_import
+    posted, exported = [], []
+    monkeypatch.setattr(push.requests, 'post', lambda url, **kw: posted.append(url) or R())
+    push._pending.add(fid)
+    push.flush()
+    assert posted and not any('mail.example' in u for u in posted)
+    monkeypatch.setattr(api_import, 'fetch_export', lambda app: exported.append(app['id']) or [])
+    assert 'quokka' not in [a['id'] for a in ok(admin.get('/api/import/preview'))['apps']]
+    assert sorted(exported) == ['kooka', 'pelican', 'wallaby']

@@ -30,7 +30,7 @@ def summary():
     with db.transaction() as conn:
         levels = {r['app']: r['level'] for r in conn.execute(
             'SELECT app, level FROM access WHERE family_id = ? AND user_id = ?', (g.family_id, g.user['id']))}
-    targets = [a for a in (apps.get(i) for i in apps.ids() if i in levels) if a and a['key'] and a['internal_url']]
+    targets = [a for a in (apps.get(i) for i in apps.ids() if i in levels) if a and a['serves'] and a['key'] and a['internal_url']]
     if not targets:
         return jsonify(apps={})
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:

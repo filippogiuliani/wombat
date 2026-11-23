@@ -46,6 +46,9 @@ Each app keeps working on its own unless `*_HUB_URL` and `*_HUB_KEY` are set. Wh
    (`backend/service.py`) go through, for a member of the family who may use the asking app (and, when the answer is
    Pelican's, Pelican too). Today: Wallaby sends the weekly menu to a Kooka shopping list (the admin only picks the
    list in Wallaby → Family).
+7. **Quokka** (the webmail) is connected the same way but only asks: who signed in with Pocket ID (`whoami`), then from
+   an email a deadline or an invitation in Kooka and a document in Pelican, as that person. Wombat never asks Quokka for
+   families, changes or the home summary. Give members access to Quokka in Family like any other app.
 
 Each app has its own key (`python manage.py new-key`), set both in Wombat (`WOMBAT_APP_<APP>_KEY`) and in the app
 (`<APP>_HUB_KEY`). It is only used between servers.

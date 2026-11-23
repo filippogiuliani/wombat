@@ -6,6 +6,9 @@
   WOMBAT_APP_KOOKA_KEY=…                                 shared secret, the same as KOOKA_HUB_KEY in that app
   WOMBAT_APP_KOOKA_NAME / _DESCRIPTION                   optional: shown on the home page
 
+Quokka (the webmail) is connected the same way (WOMBAT_APP_QUOKKA_URL / _KEY, QUOKKA_HUB_KEY there) but only asks:
+who signed in with Pocket ID, and Kooka/Pelican on their behalf (see service.ALLOWED).
+
 `python manage.py new-key` makes a key. The key lets the app ask Wombat who a person is and what their family looks
 like; Wombat uses it to read the app's family data during the import."""
 import hmac
@@ -15,7 +18,11 @@ DEFAULTS = {
     'kooka': ('Kooka', 'Cose da fare, scadenze, appuntamenti, spesa', 'To-dos, deadlines, appointments, shopping'),
     'wallaby': ('Wallaby', 'Svezzamento: pasti, dispensa, menu', 'Weaning: meals, pantry, menu'),
     'pelican': ('Pelican', 'Archivio dei documenti di famiglia', 'Family document archive'),
+    'quokka': ('Quokka', 'Posta di famiglia', 'Family webmail'),
 }
+# Apps that only ask (Quokka: who is this person, and the other apps through Wombat): they keep no family of their
+# own, so Wombat neither imports from them nor tells them about changes nor asks them for the home summary.
+ASK_ONLY = {'quokka'}
 
 
 def _env(app_id, key, default=''):
@@ -36,6 +43,7 @@ def get(app_id):
         'internal_url': (_env(app_id, 'INTERNAL_URL') or url).rstrip('/'),
         'description': {'it': _env(app_id, 'DESCRIPTION', desc_it), 'en': _env(app_id, 'DESCRIPTION', desc_en)},
         'key': _env(app_id, 'KEY'),
+        'serves': app_id not in ASK_ONLY,
     }
 
 

@@ -49,7 +49,7 @@ def flush():
     told = {}
     for app_id in apps.ids():
         app = apps.get(app_id)
-        if not app or not app['key'] or not app['internal_url']:
+        if not app or not app['serves'] or not app['key'] or not app['internal_url']:
             continue
         for fid in families:
             try:

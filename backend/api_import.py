@@ -106,6 +106,8 @@ def preview():
     me = g.user['email'].lower()
     for app_id in apps.ids():
         app = apps.get(app_id)
+        if not app['serves']:
+            continue
         entry = {'id': app_id, 'name': app['name'], 'ok': True, 'error': None, 'families': [], 'selected': None}
         try:
             fams = fetch_export(app)

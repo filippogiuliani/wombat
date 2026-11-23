@@ -115,6 +115,11 @@ ALLOWED = {
                              ('DELETE', r'/deadlines/pelican-\d+', False)],
     ('kooka', 'pelican'): [('POST', r'/documents', True)],                 # a deadline's document → the archive
     ('wallaby', 'pelican'): [('GET', r'/plans', True)],                      # the paediatrician's plans of a child
+    ('quokka', 'kooka'): [('POST', r'/reminders', True),                     # an email's deadline
+                            ('GET', r'/calendar/busy', True),                 # an invitation: what is on at that time
+                            ('GET', r'/calendar/invite', True),               # … already in the calendar?
+                            ('POST', r'/calendar/invite', True)],             # … saved, updated, removed
+    ('quokka', 'pelican'): [('POST', r'/imports', True)],                    # an email or its attachment → the archive
 }
 MAX_RELAYED = 30 * 1024 * 1024   # a document (base64) from Kooka to Pelican; everything else stays under 1 MB
 PASSED_ON = (200, 201, 400, 403, 404, 409)
